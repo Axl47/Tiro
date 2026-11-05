@@ -1672,3 +1672,21 @@ TextEdit process were stopped afterward.
 - **Native checks require deliberate setup:** permissions, model, keyboard,
   microphone, output device, and a disposable text target must be recorded. This
   map does not authorize operating the installed app or injecting global input.
+
+## Local cleanup (Tiro)
+
+```ts
+transcript
+├── spoken paths written out        src/dictation/cleanup/spoken_paths.rs
+├── Vedu Scribe in `tiro-scribe`     src/dictation/cleanup/sidecar.rs, native/scribe
+│   ├── loading, late, or failed ──▶ deterministic residue removal; never lost
+│   └── answered
+│       ├── faithful ──▶ near copies repaired, then residue removal
+│       └── unfaithful ──▶ deterministic residue removal
+└── the person's corrections, then any OpenCode rewrite
+```
+
+On by default; `hex labs off scribe-cleanup`. The helper starts at launch and on each
+press after going idle, and stops after 15 idle minutes. Checks: `cargo test cleanup`,
+`benchmarks/cleanup/`. Paste is not covered by the benchmark, which uses
+`hex dictation stop --print`.

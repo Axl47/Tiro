@@ -83,3 +83,11 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+## Vedu Scribe 0.8B
+
+Tiro downloads the [Vedu Scribe 0.8B](https://huggingface.co/heyvedu/vedu-scribe-0.8b)
+weights on first use (Apache-2.0, a fine-tune of Qwen3.5-0.8B). `tiro-scribe` links
+[mlx-swift](https://github.com/ml-explore/mlx-swift) and
+[mlx-swift-lm](https://github.com/ml-explore/mlx-swift-lm) (MIT), and
+[swift-transformers](https://github.com/huggingface/swift-transformers) (Apache-2.0).

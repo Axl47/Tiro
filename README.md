@@ -1,44 +1,47 @@
-# Hex
+# Tiro
 
-Hex is local voice dictation for Mac, Windows and Linux. Hold a key, speak, and
-it pastes.
+Tiro is English-only local dictation for macOS, built for dictating prompts to coding
+agents. Hold a key and speak the way you actually talk; what pastes reads the way you
+meant it, with your technical terms intact.
 
-## How it works
+It is a fork of [Hex](https://github.com/anomalyco/hex) that adds
+[Vedu Scribe 0.8B](https://huggingface.co/heyvedu/vedu-scribe-0.8b), a small on-device
+model, as a cleanup stage. The name is Marcus Tullius Tiro's, the secretary who took
+down Cicero's speech and invented a shorthand to keep up.
 
-- hold the shortcut, speak, then let go
-- Hex transcribes on your device and pastes into whatever app you're in
-- the first run downloads a speech model; after that nothing leaves your machine
-- experimental features live in Labs, at the bottom of the sidebar
+- Speech recognition and cleanup both run on your Mac; requires Apple silicon
+- Removes fillers, repetitions, and false starts, and applies self-corrections
+- Guards code: mangled words are repaired, and output that loses a path, flag, or
+  `snake_case` name is thrown away in favor of a deterministic cleanup
+- Add your own terms with `hex vocabulary add`; the raw transcript stays in History
 
-## Downloads
+## Build
 
-Stable is the current release. Dev is the newest build of `dev` and updates
-itself from the dev channel.
+Needs Xcode with its Metal Toolchain (`xcodebuild -downloadComponent MetalToolchain`),
+Rust, and cmake.
 
-| Platform | Stable | Dev |
-| --- | --- | --- |
-| macOS (Apple silicon) | [DMG](https://anoma.ly/hex/download/macos-arm64-dmg) | [DMG](https://anoma.ly/hex/download/dev/macos-arm64-dmg) |
-| Windows x64 | [Installer](https://anoma.ly/hex/download/windows-x64-setup) | [Installer](https://anoma.ly/hex/download/dev/windows-x64-setup) |
-| Windows ARM64 | [Installer](https://anoma.ly/hex/download/windows-arm64-setup) | [Installer](https://anoma.ly/hex/download/dev/windows-arm64-setup) |
-| Linux x86_64 | [Executable](https://anoma.ly/hex/download/linux-x64) | [Executable](https://anoma.ly/hex/download/dev/linux-x64) |
-| Linux x86_64 (Debian, Ubuntu) | [.deb](https://anoma.ly/hex/download/linux-x64-deb) | [.deb](https://anoma.ly/hex/download/dev/linux-x64-deb) |
-| Linux x86_64 (Fedora, openSUSE) | [.rpm](https://anoma.ly/hex/download/linux-x64-rpm) | [.rpm](https://anoma.ly/hex/download/dev/linux-x64-rpm) |
-| Linux ARM64 | [Executable](https://anoma.ly/hex/download/linux-arm64) | [Executable](https://anoma.ly/hex/download/dev/linux-arm64) |
-| Linux ARM64 (Debian, Ubuntu) | [.deb](https://anoma.ly/hex/download/linux-arm64-deb) | [.deb](https://anoma.ly/hex/download/dev/linux-arm64-deb) |
-| Linux ARM64 (Fedora, openSUSE) | [.rpm](https://anoma.ly/hex/download/linux-arm64-rpm) | [.rpm](https://anoma.ly/hex/download/dev/linux-arm64-rpm) |
+```sh
+TIRO_CODESIGN_IDENTITY="Your Identity" scripts/build-app.sh
+open target/app/Tiro.app
+```
 
-Or install with:
+A stable signing identity keeps macOS permissions across rebuilds; without one the
+build is ad-hoc signed and asks again each time. The first launch downloads Parakeet
+(731 MB) and Vedu Scribe (561 MB), both verified against pinned SHA-256 hashes.
 
-- Homebrew: `brew install --cask anomalyco/tap/hex`
-- AUR: `yay -S hex-bin`
-- install script (Linux): `curl -fsSL https://anoma.ly/hex/install-linux.sh | sh`
-- Nix: `nix profile add github:anomalyco/hex`
+## Using it
 
-More docs are in [`docs/`](docs/README.md).
+Hold the shortcut, speak, let go. Turn cleanup off with `hex labs off scribe-cleanup`.
+The command-line tool is still called `hex`, on purpose: see the architecture notes.
 
-## Contributing
+## More
 
-We don't take pull requests. [Open an issue](https://github.com/anomalyco/hex/issues)
-describing the bug or idea, and our agents usually turn it around fast.
+- [Architecture evaluation and decisions](docs/tiro/architecture.md)
+- [Raw vs cleaned benchmark](benchmarks/cleanup/README.md)
+- [Android over LAN plan](docs/tiro/android-lan.md)
+- [Hex's own docs](docs/README.md), which still apply to everything underneath
 
-MIT licensed.
+## License
+
+MIT, as Hex is. Vedu Scribe's weights are Apache-2.0. The HeyVedu app is GPLv3, so
+none of its code is used here; the integration follows the model card.

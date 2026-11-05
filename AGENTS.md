@@ -1,4 +1,18 @@
 <!-- tallow -->
+# Tiro Agent Guide
+
+Tiro is a personal fork of Hex. The "Hex Agent Guide" below describes the code
+underneath and stays accurate for it, except that Tiro's owner decides what ships here:
+ignore its rules on Kit, Dax, PR merging, `production`, releases, and the installed
+copy. Merge upstream rather than rebasing. Keep changes in new files where possible,
+and leave internal `hex_` names alone (`docs/tiro/architecture.md`). Measure cleanup
+changes with `benchmarks/cleanup/` before and after.
+
+## Local environment
+
+- Building `native/scribe` needs Xcode's Metal Toolchain: `xcodebuild -downloadComponent MetalToolchain`.
+- `tiro-scribe` must be built with `xcodebuild`; `swift build` doesn't compile MLX's Metal shaders.
+
 # Hex Agent Guide
 
 ## Private Kit Tool
@@ -113,6 +127,10 @@ substitute for source inspection or a second roadmap.
   assertion on macOS, a logind `idle:sleep` inhibitor (only `idle` where
   polkit refuses a process outside the seat session) on Linux, and a
   system-required power request on Windows.
+- `dictation/cleanup`: Tiro's Vedu Scribe stage, ahead of the corrections: spoken
+  paths, a vocabulary pre-match, the `tiro-scribe` process (`native/scribe`), a
+  faithfulness check, and deterministic residue removal, which is also its fallback.
+  `POST /cleanup` exposes it.
 - `dictation/processor`: the one OpenCode client and ordered processing policy
   for macOS, Windows, and Linux: context-selected corrections, deadline-bounded
   OpenCode rewrite profiles with corrected-transcript fallback, the ranked
