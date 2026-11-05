@@ -259,6 +259,12 @@ impl ModelDefinition {
         }
     }
 
+    /// Tiro is English-only: the models it offers are the English-only ones,
+    /// which are also the fastest. An import stays the person's own call.
+    pub(crate) fn offered(&self) -> bool {
+        self.languages == ["en"] || matches!(self.id, TranscriptionModelId::Custom(_))
+    }
+
     pub fn supports_language(&self, language: &str) -> bool {
         if language == AUTO_LANGUAGE {
             self.supports_language_detection
@@ -753,6 +759,7 @@ pub(crate) fn picker_models(
                 .chain(imported)
                 .map(|model| (model, None)),
         )
+        .filter(|(model, _)| model.offered())
         .collect()
 }
 
@@ -1900,6 +1907,14 @@ mod tests {
     }
 
     #[test]
+    fn the_picker_offers_only_english_models_with_parakeet_unified_first() {
+        let models = picker_models("en");
+        assert_eq!(models[0].0.id, TranscriptionModelId::ParakeetUnifiedEnglish);
+        assert!(models.iter().all(|(model, _)| model.languages == ["en"]));
+    }
+
+    #[test]
+    #[ignore = "Tiro offers only English models"]
     fn the_picker_lists_every_model_with_the_language_s_recommendations_first() {
         let ids = |language| {
             picker_models(language)

@@ -479,10 +479,10 @@ impl KeyboardModelChoice {
     }
 }
 
-/// A new install starts with the model recommended for the person's
+/// A new install starts with the English recommendation whatever the system
 /// language, so first-run setup can download it without asking.
 fn default_transcription() -> TranscriptionSelection {
-    crate::transcription::models::recommended_selection(&crate::desktop::i18n::preferred_language())
+    crate::transcription::models::recommended_selection("en")
 }
 
 impl AppSettings {

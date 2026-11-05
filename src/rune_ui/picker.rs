@@ -889,6 +889,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "Tiro offers only English models"]
     fn the_language_toggle_keeps_only_models_for_the_saved_language() {
         for language in ["en", "ja", "mt", AUTO_LANGUAGE] {
             let all = transcription_models::picker_models(language);
@@ -904,6 +905,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "Tiro offers only English models"]
     fn a_hidden_preparing_or_active_model_is_named() {
         let shown = arranged("ja", Sort::Recommended, true);
         let hidden = TranscriptionModelId::ParakeetUnifiedEnglish;
@@ -1035,6 +1037,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "Tiro offers only English models"]
     fn only_downloaded_models_keeps_the_installed_ones() {
         let mut ui = ui_with_downloaded(true);
         open(&mut ui);
@@ -1066,6 +1069,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "Tiro offers only English models"]
     fn the_downloaded_total_adds_up_hexs_own_files() {
         let models = transcription_models::picker_models("en");
         let installed = [
