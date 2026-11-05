@@ -35,6 +35,8 @@ mod keyboard;
 #[cfg_attr(target_os = "linux", path = "keyboard_input_sources/x11.rs")]
 mod keyboard_input_sources;
 mod labs;
+#[cfg(target_os = "macos")]
+mod lan;
 #[cfg(target_os = "linux")]
 mod linux;
 mod local_api;
@@ -121,6 +123,11 @@ enum Command {
         /// Capture from this microphone instead of the saved one or the system default.
         #[arg(long)]
         device: Option<String>,
+    },
+    /// Pair phones for dictation over the local network (Labs › LAN dictation).
+    Lan {
+        #[command(subcommand)]
+        command: lan::LanCommand,
     },
     /// Run the headless local API service.
     #[command(hide = true)]
@@ -311,6 +318,11 @@ fn main() -> Result<()> {
         Some(Command::Control(command)) => control::cli::finish(control::cli::run(command)),
         command => Cli { command },
     };
+    // Pairing files only; works with or without the app running.
+    #[cfg(target_os = "macos")]
+    if let Some(Command::Lan { command }) = &cli.command {
+        return lan::run_command(command);
+    }
     #[cfg(debug_assertions)]
     match &cli.command {
         Some(Command::Meeting {
@@ -410,6 +422,7 @@ fn main() -> Result<()> {
             local_api::run_service(&log_dir, event_path, embedded, &SHUTDOWN)
         }
         Command::Control(_) => unreachable!("handled before startup"),
+        Command::Lan { .. } => unreachable!("handled before startup"),
         #[cfg(hex_capture)]
         Command::CapsulePlayground { .. } => unreachable!("handled before startup"),
         Command::Dev { command } => {

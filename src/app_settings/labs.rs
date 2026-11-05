@@ -29,6 +29,8 @@ pub struct LabsSettings {
     pub filler_words: bool,
     /// Vedu Scribe rewrites each dictation (`dictation::cleanup`). Tiro's point, so on.
     pub scribe_cleanup: bool,
+    /// Phones paired with `hex lan pair` dictate through this Mac (`lan`).
+    pub lan_dictation: bool,
     /// `hex meetings show --srt|--vtt` exports a transcript as timed subtitles (macOS, issue 633).
     pub subtitle_export: bool,
     /// `second_dictation_hotkey` dictates like the dictation shortcut (macOS, issue 627).
@@ -111,6 +113,7 @@ impl Default for LabsSettings {
             spoken_formatting: false,
             filler_words: false,
             scribe_cleanup: true,
+            lan_dictation: false,
             subtitle_export: false,
             second_dictation_shortcut: false,
             smart_spacing: false,

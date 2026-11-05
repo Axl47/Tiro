@@ -83,6 +83,11 @@ ureq = { version = "3.4.2", default-features = false, features = ["native-tls"] 
 
 [target.'cfg(target_os = "macos")'.dependencies]
 capture-core = { path = "crates/capture-core" }
+# LAN dictation (`lan`): TLS on the system's Security framework, the
+# certificate's fingerprint, and the pairing QR code.
+base64 = "0.22"
+native-tls = "0.2"
+qrcode = { version = "0.14", default-features = false }
 arboard = { version = "3.6.1", default-features = false }
 block2 = "0.6.2"
 core-graphics-types = "0.1.3"

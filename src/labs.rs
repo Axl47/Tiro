@@ -77,6 +77,7 @@ pub enum Feature {
     SpokenFormatting,
     FillerWords,
     ScribeCleanup,
+    LanDictation,
     SubtitleExport,
     SecondDictationShortcut,
     SmartSpacing,
@@ -113,7 +114,7 @@ pub enum Feature {
 }
 
 impl Feature {
-    pub const ALL: [Self; 51] = [
+    pub const ALL: [Self; 52] = [
         Self::Meetings,
         Self::VoiceFilter,
         Self::Playground,
@@ -132,6 +133,7 @@ impl Feature {
         Self::SpokenFormatting,
         Self::FillerWords,
         Self::ScribeCleanup,
+        Self::LanDictation,
         Self::SubtitleExport,
         Self::SecondDictationShortcut,
         Self::SmartSpacing,
@@ -206,6 +208,7 @@ impl Feature {
             | Self::SpokenFormatting
             | Self::FillerWords
             | Self::ScribeCleanup
+            | Self::LanDictation
             | Self::SubtitleExport
             | Self::SecondDictationShortcut
             | Self::SmartSpacing
@@ -263,6 +266,7 @@ impl Feature {
             | Self::SpokenFormatting
             | Self::FillerWords
             | Self::ScribeCleanup
+            | Self::LanDictation
             | Self::SubtitleExport
             | Self::SecondDictationShortcut
             | Self::SmartSpacing
@@ -331,7 +335,8 @@ impl Feature {
             | Self::LiveChapters
             | Self::SubtitleExport
             | Self::StopWhenCallEnds
-            | Self::MovableMeetingCapsules => cfg!(target_os = "macos"),
+            | Self::MovableMeetingCapsules
+            | Self::LanDictation => cfg!(target_os = "macos"),
             Self::VoiceFilter => cfg!(any(target_os = "macos", target_os = "linux")),
             Self::TerminalPaste | Self::ShareShortcut => cfg!(target_os = "windows"),
             Self::SectionKeyAlone | Self::GnomeClipboardRestore | Self::GnomeMeetingCapsules => {
@@ -411,6 +416,7 @@ impl Feature {
             Self::SpokenFormatting => "spoken-formatting",
             Self::FillerWords => "filler-words",
             Self::ScribeCleanup => "scribe-cleanup",
+            Self::LanDictation => "lan-dictation",
             Self::SubtitleExport => "subtitle-export",
             Self::SecondDictationShortcut => "second-dictation-shortcut",
             Self::SmartSpacing => "smart-spacing",
@@ -468,6 +474,7 @@ impl Feature {
             Self::SpokenFormatting => "labs.spoken_formatting",
             Self::FillerWords => "labs.filler_words",
             Self::ScribeCleanup => "labs.scribe_cleanup",
+            Self::LanDictation => "labs.lan_dictation",
             Self::SubtitleExport => "labs.subtitle_export",
             Self::SecondDictationShortcut => "labs.second_dictation_shortcut",
             Self::SmartSpacing => "labs.smart_spacing",
@@ -543,6 +550,9 @@ impl Feature {
             }
             Self::ScribeCleanup => {
                 "Clean up each dictation on this Mac with Vedu Scribe: fillers, false starts, and self-corrections go; technical terms stay"
+            }
+            Self::LanDictation => {
+                "Let phones paired with hex lan pair dictate through this Mac over the local network"
             }
             Self::SubtitleExport => {
                 "Export meeting transcripts as SRT or VTT subtitles with hex meetings show"
@@ -670,6 +680,7 @@ impl Feature {
             Self::SpokenFormatting => settings.labs.spoken_formatting,
             Self::FillerWords => settings.labs.filler_words,
             Self::ScribeCleanup => settings.labs.scribe_cleanup,
+            Self::LanDictation => settings.labs.lan_dictation,
             Self::SubtitleExport => settings.labs.subtitle_export,
             Self::SecondDictationShortcut => settings.labs.second_dictation_shortcut,
             Self::SmartSpacing => settings.labs.smart_spacing,
@@ -729,6 +740,7 @@ impl Feature {
             &mut labs.spoken_formatting,
             &mut labs.filler_words,
             &mut labs.scribe_cleanup,
+            &mut labs.lan_dictation,
             &mut labs.subtitle_export,
             &mut labs.second_dictation_shortcut,
             &mut labs.smart_spacing,
@@ -790,6 +802,7 @@ impl Feature {
             Self::SpokenFormatting => settings.labs.spoken_formatting = on,
             Self::FillerWords => settings.labs.filler_words = on,
             Self::ScribeCleanup => settings.labs.scribe_cleanup = on,
+            Self::LanDictation => settings.labs.lan_dictation = on,
             Self::SubtitleExport => settings.labs.subtitle_export = on,
             Self::SecondDictationShortcut => settings.labs.second_dictation_shortcut = on,
             Self::SmartSpacing => settings.labs.smart_spacing = on,
@@ -870,8 +883,9 @@ const GNOME_MEETING_CAPSULES: u64 = 1 << 29;
 const SCREENSHOTS: u64 = 1 << 30;
 const ANNOTATE_REPLAY: u64 = 1 << 31;
 const SCRIBE_CLEANUP: u64 = 1 << 32;
+const LAN_DICTATION: u64 = 1 << 33;
 /// Unload-idle minutes (at most 1,440, 11 bits) sit above the switches.
-const MINUTES_SHIFT: u64 = 33;
+const MINUTES_SHIFT: u64 = 34;
 
 /// This process's `labs` switches: unknown until settings load or one is
 /// first read.
@@ -948,6 +962,12 @@ pub fn spoken_symbols() -> bool {
 /// dictation's processing starts).
 pub fn filler_words() -> bool {
     on(FILLER_WORDS)
+}
+
+/// Paired phones may dictate through this Mac (read by the LAN listener every
+/// second).
+pub fn lan_dictation() -> bool {
+    on(LAN_DICTATION)
 }
 
 /// Vedu Scribe cleans up dictations (read as each dictation's processing
@@ -1154,6 +1174,7 @@ fn encode_where(settings: &LabsSettings, reaches: impl Fn(Feature) -> bool) -> u
             settings.scribe_cleanup,
             SCRIBE_CLEANUP,
         ),
+        (Feature::LanDictation, settings.lan_dictation, LAN_DICTATION),
         (
             Feature::SubtitleExport,
             settings.subtitle_export,

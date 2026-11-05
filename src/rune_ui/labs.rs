@@ -617,6 +617,12 @@ fn rows(ui: &Ui) -> Vec<Row> {
         "Clean up each dictation on this Mac: fillers, false starts, and self-corrections go; technical terms stay",
     ));
     rows.push(row(
+        Feature::LanDictation,
+        None,
+        "LAN dictation",
+        "Let phones paired with hex lan pair dictate through this Mac over the local network",
+    ));
+    rows.push(row(
         Feature::HistoryStats,
         None,
         tr("Dictation stats"),
@@ -742,6 +748,7 @@ fn row_key(lab: Lab) -> &'static str {
         Feature::SpokenFormatting => "lab-spoken-formatting",
         Feature::FillerWords => "lab-filler-words",
         Feature::ScribeCleanup => "lab-scribe-cleanup",
+        Feature::LanDictation => "lab-lan-dictation",
         Feature::SubtitleExport => "lab-subtitle-export",
         Feature::SecondDictationShortcut => "lab-second-dictation-shortcut",
         Feature::SmartSpacing => "lab-smart-spacing",

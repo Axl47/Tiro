@@ -345,6 +345,11 @@ const KEYS: &[Key] = &[
         "Labs: clean up each dictation on this Mac with Vedu Scribe",
     ),
     key(
+        "labs.lan_dictation",
+        Kind::Bool,
+        "Labs: let phones paired with hex lan pair dictate through this Mac",
+    ),
+    key(
         "labs.subtitle_export",
         Kind::Bool,
         "Labs: export meeting transcripts as SRT or VTT subtitles with hex meetings show --srt|--vtt",
