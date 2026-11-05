@@ -1,0 +1,545 @@
+{
+ "ready": {
+  "event": "ready",
+  "loadMs": 1507,
+  "footprintBytes": 744885760,
+  "spawnToReadyMs": 1562
+ },
+ "cold": {
+  "firstInferenceMs": 77.53920904360712,
+  "footprintBytes": 744918528
+ },
+ "variants": {
+  "as-is": {
+   "summary": {
+    "wer": 10.013100430523298,
+    "fillers": 3,
+    "words": 184,
+    "kept": "23/25",
+    "dropped": "6/7",
+    "vocab": "1/3",
+    "p50": 286.83985403040424,
+    "p95": 487.4903749441728
+   },
+   "outputs": {
+    "hold-migration": "So I was thinking we could split the database migration into two steps because right now it locks the user's table for way too long, and that's probably why the deploy timed out yesterday.",
+    "hold-correction": "Can you add a retry to the upload function with five attempts and an exponential backoff starting at 200 milliseconds?",
+    "hold-tools": "I want to move this from just to Videst and also while you're at it, switch the package manager to PNPM and make sure the GitHub Actions workflow still passes.",
+    "hold-negation": "Don't delete the old endpoint yet because the mobile app still calls it. We should deprecate it first and then remove it in the next release or something.",
+    "hold-path": "Look in app/web/source/roots.tsx and tell me why the loader runs twice on the first render.",
+    "hold-rambling": "Yes, so I don't know if this is the right approach, but I feel like the state management here is kind of getting out of hand. So maybe we could, I guess, pull the form logic into a custom hook and see if that helps, but yeah, let me know what you think."
+   },
+   "scores": {
+    "hold-migration": {
+     "wer": 6.0606060606060606,
+     "fillers": 0,
+     "words": 34,
+     "kept": 4,
+     "kept_of": 5,
+     "lost": [
+      "users table"
+     ],
+     "dropped": 2,
+     "dropped_of": 2,
+     "vocab_hit": 0,
+     "vocab_of": 0
+    },
+    "hold-correction": {
+     "wer": 5.0,
+     "fillers": 0,
+     "words": 20,
+     "kept": 4,
+     "kept_of": 4,
+     "lost": [],
+     "dropped": 2,
+     "dropped_of": 2,
+     "vocab_hit": 0,
+     "vocab_of": 0
+    },
+    "hold-tools": {
+     "wer": 10.344827586206897,
+     "fillers": 0,
+     "words": 30,
+     "kept": 3,
+     "kept_of": 3,
+     "lost": [],
+     "dropped": 0,
+     "dropped_of": 0,
+     "vocab_hit": 1,
+     "vocab_of": 3
+    },
+    "hold-negation": {
+     "wer": 7.6923076923076925,
+     "fillers": 0,
+     "words": 28,
+     "kept": 5,
+     "kept_of": 5,
+     "lost": [],
+     "dropped": 0,
+     "dropped_of": 0,
+     "vocab_hit": 0,
+     "vocab_of": 0
+    },
+    "hold-path": {
+     "wer": 10.526315789473685,
+     "fillers": 0,
+     "words": 19,
+     "kept": 2,
+     "kept_of": 3,
+     "lost": [
+      "apps/web/source/routes.tsx"
+     ],
+     "dropped": 1,
+     "dropped_of": 1,
+     "vocab_hit": 0,
+     "vocab_of": 0
+    },
+    "hold-rambling": {
+     "wer": 20.454545454545453,
+     "fillers": 3,
+     "words": 53,
+     "kept": 5,
+     "kept_of": 5,
+     "lost": [],
+     "dropped": 1,
+     "dropped_of": 2,
+     "vocab_hit": 0,
+     "vocab_of": 0
+    }
+   },
+   "latency": [
+    {
+     "id": "hold-migration",
+     "words": 36,
+     "median": 313.87116701807827,
+     "max": 314.5094580249861,
+     "firstTokenMs": 73,
+     "inputTokens": 39,
+     "outputTokens": 38
+    },
+    {
+     "id": "hold-correction",
+     "words": 25,
+     "median": 232.40625008475035,
+     "max": 232.6283329166472,
+     "firstTokenMs": 73,
+     "inputTokens": 31,
+     "outputTokens": 25
+    },
+    {
+     "id": "hold-tools",
+     "words": 32,
+     "median": 292.75825002696365,
+     "max": 293.18474989850074,
+     "firstTokenMs": 73,
+     "inputTokens": 35,
+     "outputTokens": 35
+    },
+    {
+     "id": "hold-negation",
+     "words": 31,
+     "median": 280.92145803384483,
+     "max": 281.65266604628414,
+     "firstTokenMs": 73,
+     "inputTokens": 36,
+     "outputTokens": 33
+    },
+    {
+     "id": "hold-path",
+     "words": 24,
+     "median": 212.56479201838374,
+     "max": 212.77545799966902,
+     "firstTokenMs": 72,
+     "inputTokens": 25,
+     "outputTokens": 22
+    },
+    {
+     "id": "hold-rambling",
+     "words": 54,
+     "median": 487.4903749441728,
+     "max": 488.0480000283569,
+     "firstTokenMs": 100,
+     "inputTokens": 55,
+     "outputTokens": 62
+    }
+   ]
+  },
+  "lower+vocab": {
+   "summary": {
+    "wer": 9.438387786845137,
+    "fillers": 3,
+    "words": 184,
+    "kept": "23/25",
+    "dropped": "6/7",
+    "vocab": "3/3",
+    "p50": 296.5417295345105,
+    "p95": 488.4524589870125
+   },
+   "outputs": {
+    "hold-migration": "So I was thinking we could split the database migration into two steps because right now it locks the user's table for way too long, and that's probably why the deploy timed out yesterday.",
+    "hold-correction": "Can you add a retry to the upload function with five attempts and an exponential backoff starting at 200 milliseconds?",
+    "hold-tools": "I want to move this from just to Vitest and also while you're at it, switch the package manager to pnpm and make sure the GitHub Actions workflow still passes.",
+    "hold-negation": "Don't delete the old endpoint yet because the mobile app still calls it. We should deprecate it first and then remove it in the next release or something.",
+    "hold-path": "Look in app/web/source/roots.tsx and tell me why the loader runs twice on the first render.",
+    "hold-rambling": "Yes, so I don't know if this is the right approach, but I feel like the state management here is kind of getting out of hand. So maybe we could, I guess, pull the form logic into a custom hook and see if that helps, but yeah, let me know what you think."
+   },
+   "scores": {
+    "hold-migration": {
+     "wer": 6.0606060606060606,
+     "fillers": 0,
+     "words": 34,
+     "kept": 4,
+     "kept_of": 5,
+     "lost": [
+      "users table"
+     ],
+     "dropped": 2,
+     "dropped_of": 2,
+     "vocab_hit": 0,
+     "vocab_of": 0
+    },
+    "hold-correction": {
+     "wer": 5.0,
+     "fillers": 0,
+     "words": 20,
+     "kept": 4,
+     "kept_of": 4,
+     "lost": [],
+     "dropped": 2,
+     "dropped_of": 2,
+     "vocab_hit": 0,
+     "vocab_of": 0
+    },
+    "hold-tools": {
+     "wer": 6.896551724137931,
+     "fillers": 0,
+     "words": 30,
+     "kept": 3,
+     "kept_of": 3,
+     "lost": [],
+     "dropped": 0,
+     "dropped_of": 0,
+     "vocab_hit": 3,
+     "vocab_of": 3
+    },
+    "hold-negation": {
+     "wer": 7.6923076923076925,
+     "fillers": 0,
+     "words": 28,
+     "kept": 5,
+     "kept_of": 5,
+     "lost": [],
+     "dropped": 0,
+     "dropped_of": 0,
+     "vocab_hit": 0,
+     "vocab_of": 0
+    },
+    "hold-path": {
+     "wer": 10.526315789473685,
+     "fillers": 0,
+     "words": 19,
+     "kept": 2,
+     "kept_of": 3,
+     "lost": [
+      "apps/web/source/routes.tsx"
+     ],
+     "dropped": 1,
+     "dropped_of": 1,
+     "vocab_hit": 0,
+     "vocab_of": 0
+    },
+    "hold-rambling": {
+     "wer": 20.454545454545453,
+     "fillers": 3,
+     "words": 53,
+     "kept": 5,
+     "kept_of": 5,
+     "lost": [],
+     "dropped": 1,
+     "dropped_of": 2,
+     "vocab_hit": 0,
+     "vocab_of": 0
+    }
+   },
+   "latency": [
+    {
+     "id": "hold-migration",
+     "words": 36,
+     "median": 312.5494590494782,
+     "max": 313.02758294623345,
+     "firstTokenMs": 74,
+     "inputTokens": 39,
+     "outputTokens": 38
+    },
+    {
+     "id": "hold-correction",
+     "words": 25,
+     "median": 231.56283400021493,
+     "max": 232.834417023696,
+     "firstTokenMs": 72,
+     "inputTokens": 31,
+     "outputTokens": 25
+    },
+    {
+     "id": "hold-tools",
+     "words": 32,
+     "median": 318.80312506109476,
+     "max": 331.13162498921156,
+     "firstTokenMs": 98,
+     "inputTokens": 35,
+     "outputTokens": 35
+    },
+    {
+     "id": "hold-negation",
+     "words": 31,
+     "median": 280.5340000195429,
+     "max": 282.685499987565,
+     "firstTokenMs": 74,
+     "inputTokens": 36,
+     "outputTokens": 33
+    },
+    {
+     "id": "hold-path",
+     "words": 24,
+     "median": 212.33012492302805,
+     "max": 212.6794169889763,
+     "firstTokenMs": 72,
+     "inputTokens": 25,
+     "outputTokens": 22
+    },
+    {
+     "id": "hold-rambling",
+     "words": 54,
+     "median": 488.4524589870125,
+     "max": 493.9712090417743,
+     "firstTokenMs": 101,
+     "inputTokens": 55,
+     "outputTokens": 62
+    }
+   ]
+  },
+  "tiro": {
+   "summary": {
+    "wer": 8.68081202926938,
+    "fillers": 2,
+    "words": 182,
+    "kept": "23/25",
+    "dropped": "7/7",
+    "vocab": "3/3",
+    "p50": 313.61914647277445,
+    "p95": 490.87491596583277
+   },
+   "outputs": {
+    "hold-migration": "So I was thinking we could split the database migration into two steps, because right now it locks the user's table for way too long, and that's probably why the deploy timed out yesterday.",
+    "hold-correction": "Can you add a retry to the upload function with five attempts and an exponential backoff starting at 200 milliseconds?",
+    "hold-tools": "I want to move this from just to Vitest and also while you're at it, switch the package manager to pnpm and make sure the GitHub Actions workflow still passes.",
+    "hold-negation": "Don't delete the old endpoint yet because the mobile app still calls it. We should deprecate it first and then remove it in the next release or something.",
+    "hold-path": "Look in app/web/source/roots.tsx and tell me why the loader runs twice on the first render.",
+    "hold-rambling": "Yes, so I don't know if this is the right approach, but I feel like the state management here is kind of getting out of hand. So maybe we could, I guess, pull the form logic into a custom hook and see if that helps. Let me know what you think."
+   },
+   "scores": {
+    "hold-migration": {
+     "wer": 6.0606060606060606,
+     "fillers": 0,
+     "words": 34,
+     "kept": 4,
+     "kept_of": 5,
+     "lost": [
+      "users table"
+     ],
+     "dropped": 2,
+     "dropped_of": 2,
+     "vocab_hit": 0,
+     "vocab_of": 0
+    },
+    "hold-correction": {
+     "wer": 5.0,
+     "fillers": 0,
+     "words": 20,
+     "kept": 4,
+     "kept_of": 4,
+     "lost": [],
+     "dropped": 2,
+     "dropped_of": 2,
+     "vocab_hit": 0,
+     "vocab_of": 0
+    },
+    "hold-tools": {
+     "wer": 6.896551724137931,
+     "fillers": 0,
+     "words": 30,
+     "kept": 3,
+     "kept_of": 3,
+     "lost": [],
+     "dropped": 0,
+     "dropped_of": 0,
+     "vocab_hit": 3,
+     "vocab_of": 3
+    },
+    "hold-negation": {
+     "wer": 7.6923076923076925,
+     "fillers": 0,
+     "words": 28,
+     "kept": 5,
+     "kept_of": 5,
+     "lost": [],
+     "dropped": 0,
+     "dropped_of": 0,
+     "vocab_hit": 0,
+     "vocab_of": 0
+    },
+    "hold-path": {
+     "wer": 10.526315789473685,
+     "fillers": 0,
+     "words": 19,
+     "kept": 2,
+     "kept_of": 3,
+     "lost": [
+      "apps/web/source/routes.tsx"
+     ],
+     "dropped": 1,
+     "dropped_of": 1,
+     "vocab_hit": 0,
+     "vocab_of": 0
+    },
+    "hold-rambling": {
+     "wer": 15.909090909090908,
+     "fillers": 2,
+     "words": 51,
+     "kept": 5,
+     "kept_of": 5,
+     "lost": [],
+     "dropped": 2,
+     "dropped_of": 2,
+     "vocab_hit": 0,
+     "vocab_of": 0
+    }
+   },
+   "latency": [
+    {
+     "id": "hold-migration",
+     "words": 36,
+     "median": 347.1859589917585,
+     "max": 348.8500419771299
+    },
+    {
+     "id": "hold-correction",
+     "words": 25,
+     "median": 232.8810408944264,
+     "max": 233.19791699759662
+    },
+    {
+     "id": "hold-tools",
+     "words": 32,
+     "median": 319.901334005408,
+     "max": 321.32629200350493
+    },
+    {
+     "id": "hold-negation",
+     "words": 31,
+     "median": 307.3369589401409,
+     "max": 308.92691598273814
+    },
+    {
+     "id": "hold-path",
+     "words": 24,
+     "median": 215.00154200475663,
+     "max": 215.6973750097677
+    },
+    {
+     "id": "hold-rambling",
+     "words": 54,
+     "median": 490.87491596583277,
+     "max": 494.62258303537965
+    }
+   ],
+   "fallbacks": {
+    "hold-migration": null,
+    "hold-correction": null,
+    "hold-tools": null,
+    "hold-negation": null,
+    "hold-path": null,
+    "hold-rambling": null
+   }
+  }
+ },
+ "raw": {
+  "hold-migration": {
+   "wer": 12.121212121212121,
+   "fillers": 2,
+   "words": 36,
+   "kept": 4,
+   "kept_of": 5,
+   "lost": [
+    "users table"
+   ],
+   "dropped": 1,
+   "dropped_of": 2,
+   "vocab_hit": 0,
+   "vocab_of": 0
+  },
+  "hold-correction": {
+   "wer": 30.0,
+   "fillers": 1,
+   "words": 25,
+   "kept": 4,
+   "kept_of": 4,
+   "lost": [],
+   "dropped": 1,
+   "dropped_of": 2,
+   "vocab_hit": 0,
+   "vocab_of": 0
+  },
+  "hold-tools": {
+   "wer": 17.24137931034483,
+   "fillers": 0,
+   "words": 32,
+   "kept": 3,
+   "kept_of": 3,
+   "lost": [],
+   "dropped": 0,
+   "dropped_of": 0,
+   "vocab_hit": 1,
+   "vocab_of": 3
+  },
+  "hold-negation": {
+   "wer": 19.23076923076923,
+   "fillers": 2,
+   "words": 31,
+   "kept": 5,
+   "kept_of": 5,
+   "lost": [],
+   "dropped": 0,
+   "dropped_of": 0,
+   "vocab_hit": 0,
+   "vocab_of": 0
+  },
+  "hold-path": {
+   "wer": 36.8421052631579,
+   "fillers": 1,
+   "words": 24,
+   "kept": 2,
+   "kept_of": 3,
+   "lost": [
+    "apps/web/source/routes.tsx"
+   ],
+   "dropped": 0,
+   "dropped_of": 1,
+   "vocab_hit": 0,
+   "vocab_of": 0
+  },
+  "hold-rambling": {
+   "wer": 22.727272727272727,
+   "fillers": 4,
+   "words": 54,
+   "kept": 5,
+   "kept_of": 5,
+   "lost": [],
+   "dropped": 0,
+   "dropped_of": 2,
+   "vocab_hit": 0,
+   "vocab_of": 0
+  }
+ },
+ "peakFootprintBytes": 755469824
+}

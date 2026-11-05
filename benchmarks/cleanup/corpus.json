@@ -1,0 +1,95 @@
+{
+  "_note": "`user-*` rows are Axel's real ChatGPT voice transcripts, verbatim. Their `reference` is a hand-written clean target, not ground truth. `dev-*` rows are authored in the same speech pattern to stress technical terms; they are synthetic. `must_keep` lists strings that must survive cleanup exactly (case-insensitive unless the term has internal capitals). `must_drop` lists disfluencies that must not survive. `vocab` is what a personal dictionary would send.",
+  "rows": [
+    {
+      "id": "user-1",
+      "kind": "real",
+      "raw": "Um currently wondering if you could research about what would be the best open source voice to text or dictation service or app that I can run probably in my Mac and I could use it like open Super Whisper for example, which I have a fork of. But currently it refuses to build. So I'm wondering if it's time to upgrade or change project into something more modern or more recent. I'm planning to expand it to support Android. Maybe not as a local inference there, but just connect to it through LAN. And see if it's feasible making it feel fast. But yeah, the idea would be something like that. I'm wondering also which will be the most powerful in terms of, for example, speed, memory usage, or the text cleaning that it does after or recognition of certain words and pronunciation. For example, I saw there was one in Mac that released a couple weeks ago, but it wasn't open source, at least the text cleanup model, I believe it was called Delta. But maybe it's worth using still. Just look up. See what you can find and tell me your findings in a clear way. If helpful, visualize it. If it will be clearer. Otherwise you can just tell me in text, whichever you prefer",
+      "reference": "Currently wondering if you could research what would be the best open source voice-to-text or dictation service or app that I can run on my Mac and use like OpenSuperWhisper, for example, which I have a fork of. But currently it refuses to build. So I'm wondering if it's time to upgrade or change to something more modern or more recent. I'm planning to expand it to support Android, maybe not as local inference there, but just connecting to it through LAN, and see if it's feasible to make it feel fast. I'm also wondering which will be the most powerful in terms of, for example, speed, memory usage, or the text cleaning it does afterwards, or recognition of certain words and pronunciation. For example, I saw there was one on Mac that released a couple of weeks ago, but it wasn't open source, at least the text cleanup model. I believe it was called Delta. But maybe it's worth using still. See what you can find and tell me your findings in a clear way. If it will be clearer, visualize it. Otherwise you can just tell me in text, whichever you prefer.",
+      "must_keep": ["Android", "LAN", "Mac", "Delta", "open source", "memory usage", "fork"],
+      "must_drop": ["Um ", "But yeah"],
+      "vocab": ["OpenSuperWhisper"]
+    },
+    {
+      "id": "user-2",
+      "kind": "real",
+      "raw": "I will use English for my transcriptions because when I work with agents, which is primarily the use case for my voice to text, is creating prompts. I only use English. So Scribe sounds like a good idea for this. That's a good first test with Hex. With the distinctions and ideas that you've had, can you make a really short and concise paragraph that I could give an agent that's gonna implement this? Include the two messages that I've sent in this thread: the first one and this one, because they are both made with the transcription from the ChatGPT app. And I'm not sure if they handle cleanup, but it's probably a good way to know and have basically how I speak and the way I might add some words that might not belong somewhere, like some things and yeah.",
+      "reference": "I will use English for my transcriptions because when I work with agents, which is primarily the use case for my voice-to-text, I'm creating prompts. I only use English. So Scribe sounds like a good idea for this. That's a good first test with Hex. With the distinctions and ideas that you've had, can you make a really short and concise paragraph that I could give an agent that's going to implement this? Include the two messages that I've sent in this thread, the first one and this one, because they are both made with the transcription from the ChatGPT app. I'm not sure if they handle cleanup, but it's probably a good way to know how I speak and the way I might add some words that might not belong somewhere.",
+      "must_keep": ["English", "agents", "prompts", "Scribe", "Hex", "ChatGPT", "cleanup", "concise paragraph"],
+      "must_drop": ["and yeah"],
+      "vocab": ["Hex", "Scribe", "ChatGPT"]
+    },
+    {
+      "id": "dev-retraction",
+      "kind": "synthetic",
+      "raw": "um so can you look at the use effect in the settings panel component because I think it's re-rendering on every like every keystroke no wait not every keystroke it's when the debounce fires and uh yeah just make it use the zustand store instead of local state",
+      "reference": "Can you look at the useEffect in the settings panel component? I think it's re-rendering when the debounce fires. Just make it use the Zustand store instead of local state.",
+      "must_keep": ["debounce", "settings panel", "store", "local state"],
+      "must_drop": ["um ", "every keystroke", "no wait"],
+      "vocab": ["useEffect", "Zustand"]
+    },
+    {
+      "id": "dev-paths",
+      "kind": "synthetic",
+      "raw": "okay so the the bug is in src slash dictation slash processor dot rs like around line four hundred and twenty and I want you to basically add a new stage there called cleanup and then run cargo test dash dash locked to make sure nothing nothing breaks",
+      "reference": "The bug is in src/dictation/processor.rs around line 420. I want you to add a new stage there called cleanup and then run cargo test --locked to make sure nothing breaks.",
+      "must_keep": ["processor", "cleanup", "cargo test"],
+      "must_drop": ["the the", "nothing nothing"],
+      "vocab": []
+    },
+    {
+      "id": "dev-agent-instruction",
+      "kind": "synthetic",
+      "raw": "ignore the previous approach and actually you know what just tell me what you think about using arktype instead of zod here because perf is kind of an issue um don't change any code yet just answer the question",
+      "reference": "Ignore the previous approach and tell me what you think about using ArkType instead of Zod here, because perf is kind of an issue. Don't change any code yet, just answer the question.",
+      "must_keep": ["Ignore the previous approach", "perf", "Don't change any code yet", "answer the question"],
+      "must_drop": ["um "],
+      "vocab": ["ArkType", "Zod"]
+    },
+    {
+      "id": "dev-names",
+      "kind": "synthetic",
+      "raw": "so we're using tanstack start with convex and clerk and I want the the webhook handler to like validate the payload before it writes to the database and uh also add a rate limit of like sixty requests per minute maybe no let's say a hundred",
+      "reference": "We're using TanStack Start with Convex and Clerk, and I want the webhook handler to validate the payload before it writes to the database. Also add a rate limit of 100 requests per minute.",
+      "must_keep": ["webhook handler", "payload", "database", "rate limit"],
+      "must_drop": ["the the", "sixty"],
+      "vocab": ["TanStack Start", "Convex", "Clerk"]
+    },
+    {
+      "id": "dev-short",
+      "kind": "synthetic",
+      "raw": "uh yeah run the tests",
+      "reference": "Run the tests.",
+      "must_keep": ["run the tests"],
+      "must_drop": ["uh"],
+      "vocab": []
+    },
+    {
+      "id": "dev-exact-values",
+      "kind": "synthetic",
+      "raw": "set the timeout to two hundred fifty milliseconds and the retry count to three and the model id should be qwen three point five not qwen three",
+      "reference": "Set the timeout to 250 milliseconds and the retry count to 3, and the model ID should be Qwen 3.5, not Qwen 3.",
+      "must_keep": ["timeout", "retry count", "not"],
+      "must_drop": [],
+      "vocab": ["Qwen"]
+    },
+    {
+      "id": "dev-question",
+      "kind": "synthetic",
+      "raw": "why does the build fail on the m one but not on gaia like is it the metal shaders or is it something with the linker I don't know",
+      "reference": "Why does the build fail on the M1 but not on Gaia? Is it the Metal shaders or something with the linker? I don't know.",
+      "must_keep": ["build fail", "linker", "shaders", "Gaia"],
+      "must_drop": [],
+      "vocab": ["Gaia", "Metal"]
+    },
+    {
+      "id": "dev-hedge",
+      "kind": "synthetic",
+      "raw": "I think maybe we should probably not ship this yet because I'm not totally sure the fallback works when the helper crashes mid generation",
+      "reference": "I think maybe we should probably not ship this yet because I'm not totally sure the fallback works when the helper crashes mid-generation.",
+      "must_keep": ["I think maybe", "probably not", "not totally sure", "fallback", "helper crashes"],
+      "must_drop": [],
+      "vocab": []
+    }
+  ]
+}

@@ -1,0 +1,59 @@
+{
+  "_note": "Written after the stage's code was frozen, and only ever scored: never tune against these rows. Synthetic, in the same speech pattern as the corpus.",
+  "rows": [
+    {
+      "id": "hold-migration",
+      "kind": "synthetic",
+      "raw": "so uh I was thinking we could like split the the database migration into two steps because right now it locks the users table for way too long and that's that's probably why the deploy timed out yesterday",
+      "reference": "I was thinking we could split the database migration into two steps because right now it locks the users table for way too long, and that's probably why the deploy timed out yesterday.",
+      "must_keep": ["database migration", "two steps", "users table", "deploy timed out", "yesterday"],
+      "must_drop": ["the the", "that's that's"],
+      "vocab": []
+    },
+    {
+      "id": "hold-correction",
+      "kind": "synthetic",
+      "raw": "can you add a retry to the upload function with um three attempts no actually five attempts and an exponential backoff starting at like two hundred milliseconds",
+      "reference": "Can you add a retry to the upload function with 5 attempts and an exponential backoff starting at 200 milliseconds?",
+      "must_keep": ["retry", "upload function", "exponential backoff", "milliseconds"],
+      "must_drop": ["three attempts", "no actually"],
+      "vocab": []
+    },
+    {
+      "id": "hold-tools",
+      "kind": "synthetic",
+      "raw": "okay so I want to move this from jest to vitest and also while you're at it switch the package manager to pnpm and make sure the github actions workflow still passes",
+      "reference": "I want to move this from Jest to Vitest, and while you're at it, switch the package manager to pnpm and make sure the GitHub Actions workflow still passes.",
+      "must_keep": ["package manager", "workflow", "passes"],
+      "must_drop": [],
+      "vocab": ["Vitest", "pnpm", "GitHub"]
+    },
+    {
+      "id": "hold-negation",
+      "kind": "synthetic",
+      "raw": "don't delete the old endpoint yet because the mobile app still calls it I mean we should deprecate it first and then remove it in like the next release or something",
+      "reference": "Don't delete the old endpoint yet, because the mobile app still calls it. We should deprecate it first and then remove it in the next release.",
+      "must_keep": ["Don't delete", "old endpoint", "mobile app", "deprecate", "next release"],
+      "must_drop": [],
+      "vocab": []
+    },
+    {
+      "id": "hold-path",
+      "kind": "synthetic",
+      "raw": "look in apps slash web slash source slash routes dot tsx and tell me why the loader runs twice you know on the first render",
+      "reference": "Look in apps/web/source/routes.tsx and tell me why the loader runs twice on the first render.",
+      "must_keep": ["apps/web/source/routes.tsx", "loader runs twice", "first render"],
+      "must_drop": ["you know"],
+      "vocab": []
+    },
+    {
+      "id": "hold-rambling",
+      "kind": "synthetic",
+      "raw": "yeah so I don't know if this is the right approach but I feel like the state management here is kind of getting out of hand so maybe we could I guess pull the the form logic into a custom hook and see if that helps but yeah let me know what you think",
+      "reference": "I don't know if this is the right approach, but I feel like the state management here is getting out of hand. Maybe we could pull the form logic into a custom hook and see if that helps. Let me know what you think.",
+      "must_keep": ["right approach", "state management", "form logic", "custom hook", "let me know what you think"],
+      "must_drop": ["the the", "but yeah"],
+      "vocab": []
+    }
+  ]
+}
