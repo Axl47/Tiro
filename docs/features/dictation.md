@@ -791,15 +791,17 @@ Model advertises streaming, GPU device             // dictate.streaming
   Nothing is pasted or reaches the focused app until the final text exists
   Labs + labs.live_text -> After each feed the stream publishes its text   // dictate.live-text
   ├── Stable (committed) and tentative text, per capture; a new capture starts empty
-  ├── One click-through line just past the HUD, on the HUD's screen
+  ├── One click-through plate just past the HUD, on the HUD's screen
   │   ├── macOS: beside the plate the HUD placed (under the menu bar, over the Dock,
   │   │   in the menu bar, out of the notch), on the pointer's screen
   │   ├── Linux, Windows: past the plate `rune_hud` draws, on the HUD's display
   │   ├── HUD hidden -> In the HUD's place at the top
   │   ├── Appears with the first words, already drawn; prewarmed, so macOS never
   │   │   reveals the last dictation's words for a frame (Linux, Windows: unverified)
-  │   ├── Grows with the words to 552 pt; the newest stay in view, "…" cutting the start
-  │   └── Tentative words, when the model has any, are dimmed after the stable ones
+  │   ├── Grows with the words to 552 pt, then wraps onto up to 4 lines, growing away
+  │   │   from the HUD; past that the oldest lines scroll out the top, the newest in view
+  │   └── Tentative words, when the model has any, are dimmed after the stable ones,
+  │       wrapping with them as one paragraph (right-to-left order from its bidi)
   ├── Release, short tap, or a lost microphone -> The recording ends -> Hidden
   ├── Provisional: never pasted, copied, or kept (the final text replaces it)
   ├── A failed or interrupted stream clears the text while the capture goes on

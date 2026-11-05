@@ -1,6 +1,7 @@
-//! The live text plate (Labs): one click-through line
-//! beside the recording HUD with what the dictation has said so far, on
-//! every OS. It shows while a recording has text and hides when the
+//! The live text plate (Labs): a click-through plate beside the recording
+//! HUD with what the dictation has said so far, on every OS. Long text wraps
+//! onto up to [`MAX_LINES`] lines, growing away from the HUD; past that the
+//! oldest lines scroll out of view. It shows while a recording has text and hides when the
 //! recording ends ([`crate::dictation::live_text`]); `rune_hud` says where the HUD is,
 //! so the plate sits just past it, on the HUD's screen.
 //!
@@ -13,24 +14,30 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 use rune::{
-    Anim, Cx, El, OverlayHandle, OverlayOptions, OverlayPlacement, OverlaySpec, ScreenEdge, row,
-    text,
+    Anim, Cx, El, OverlayHandle, OverlayOptions, OverlayPlacement, OverlaySpec, ScreenEdge, Span,
+    col, text,
 };
 
 use super::controls::Paint;
 use crate::transcription::engine::Partial;
 
-/// The overlay's size: room for about a dozen words on one line.
-pub(crate) const SIZE: (f32, f32) = (560.0, 44.0);
-/// The plate's height inside the overlay.
+/// The overlay's size: about a dozen words a line, and room for the plate
+/// at [`MAX_LINES`] (it hugs fewer).
+pub(crate) const SIZE: (f32, f32) = (560.0, 120.0);
+/// The plate's height with one line, and its corner radius's diameter.
 const PLATE_H: f32 = 32.0;
-/// The overlay's room around the plate, across its height.
-const PAD: f32 = (SIZE.1 - PLATE_H) / 2.0;
+/// The most lines the plate shows; older lines scroll out of view above.
+const MAX_LINES: f32 = 4.0;
+/// The overlay's room between its HUD-side edge and the plate.
+const PAD: f32 = 6.0;
 
 #[derive(Default)]
 pub(crate) struct Plate {
     stable: String,
     tentative: String,
+    /// The plate hangs down from the overlay's top (the HUD is above it);
+    /// else it rises from the bottom.
+    below: bool,
 }
 
 /// Where the plate starts, just past the HUD.
@@ -47,6 +54,14 @@ pub(crate) enum Spot {
 }
 
 impl Spot {
+    /// Whether the plate sits below the HUD, so it grows downwards.
+    fn below(self) -> bool {
+        match self {
+            Self::Edge(edge, _) => edge != ScreenEdge::Bottom,
+            Self::Global { below, .. } => below,
+        }
+    }
+
     /// The overlay's placement for the plate to start at this spot.
     fn placement(self) -> OverlayPlacement {
         match self {
@@ -147,7 +162,9 @@ pub(crate) fn install<S: 'static>(app: &mut rune::App<S>, place: Place) {
             if appearing {
                 // Placed and shown after the new words, so it appears
                 // where it belongs with them already drawn.
-                place().apply(&handle);
+                let spot = place();
+                plate.below = spot.below();
+                spot.apply(&handle);
                 handle.show();
             }
         });
@@ -162,83 +179,75 @@ fn is_blank(partial: &Partial) -> bool {
     partial.stable.trim().is_empty() && partial.tentative.trim().is_empty()
 }
 
-/// About one space of the plate's font, between right-to-left stable and
-/// tentative words.
-const RTL_SPACE: f32 = 4.0;
-
-/// Whether the line's first strong letter is right-to-left (Hebrew, Arabic,
-/// Persian, Syriac, Thaana, N'Ko, and their presentation forms).
-fn is_right_to_left(stable: &str, tentative: &str) -> bool {
-    stable
-        .chars()
-        .chain(tentative.chars())
-        .find(|c| c.is_alphabetic() || is_rtl_letter(*c))
-        .is_some_and(is_rtl_letter)
-}
-
-fn is_rtl_letter(c: char) -> bool {
-    matches!(
-        c,
-        '\u{0590}'..='\u{08FF}' | '\u{FB1D}'..='\u{FDFF}' | '\u{FE70}'..='\u{FEFF}'
-    )
+/// The words as one string, and where the tentative ones start. Stable and
+/// tentative words share one paragraph so they wrap together; its bidi
+/// ordering puts right-to-left tentative words after (left of) the stable ones.
+fn words(plate: &Plate) -> (String, usize) {
+    let stable = plate.stable.trim();
+    let tentative = if stable.is_empty() {
+        plate.tentative.trim_start()
+    } else {
+        plate.tentative.as_str()
+    };
+    (format!("{stable}{}", tentative.trim_end()), stable.len())
 }
 
 fn view(plate: &Plate, cx: &mut Cx<Plate>) -> El {
     let p = Paint::new(cx.system_dark(), cx.env().scale);
     let c = &p.k.c;
-    let root = row()
+    let root = col()
         .key("live-text")
         .w_full()
         .h_full()
-        .center()
+        .items_center()
         .px(4.0)
+        .py(PAD)
         .hover_motion_within(Anim::INSTANT, Anim::INSTANT);
-    if plate.stable.trim().is_empty() && plate.tentative.trim().is_empty() {
+    // Grows away from the HUD.
+    let root = if plate.below {
+        root
+    } else {
+        root.justify_end()
+    };
+    let (words, tentative_at) = words(plate);
+    if words.trim().is_empty() {
         return root;
     }
-    // The newest words stay in view: the start gives way with "…".
-    let stable = text(plate.stable.trim().to_owned())
-        .key("stable")
-        .truncate_head()
-        .font(p.k.ty.ui)
-        .color(p.text());
-    let rtl = is_right_to_left(&plate.stable, &plate.tentative);
-    let tentative = (!plate.tentative.trim().is_empty()).then(|| {
-        let words = text(if rtl {
-            // A leading space would sit on the right-to-left line's far
-            // (right) side; the gap goes between the words instead.
-            plate.tentative.trim().to_owned()
-        } else {
-            plate.tentative.clone()
-        })
-        .key("tentative")
-        .truncate()
-        .font(p.k.ty.ui)
-        .color(p.faint());
-        let spaced = rtl
-            && !plate.stable.trim().is_empty()
-            && plate.tentative.starts_with(char::is_whitespace);
-        if spaced { words.mr(RTL_SPACE) } else { words }
-    });
-    let line = row().key("line").min_w(0.0).shrink();
-    // Right-to-left, the newer (tentative) words read after the stable ones,
-    // so they sit to their left.
-    let line = if rtl {
-        line.children(tentative).child(stable)
+    let font = p.k.ty.ui;
+    let line_h = if font.line_height > 0.0 {
+        font.line_height
     } else {
-        line.child(stable).children(tentative)
+        font.size * 1.25
     };
+    let pad_y = ((PLATE_H - line_h) / 2.0).max(0.0);
+    let tentative = Span::new(tentative_at, words.len()).color(p.faint());
+    let words = text(words)
+        .key("words")
+        .wrap()
+        .spans(vec![tentative])
+        .font(font)
+        .color(p.text());
     root.child(
-        row()
+        col()
             .key("plate")
-            .h(PLATE_H)
+            .min_h(PLATE_H)
             .max_w(SIZE.0 - 8.0)
             .px(14.0)
-            .center_y()
+            .py(pad_y)
+            .justify_end()
             .radius(PLATE_H / 2.0)
             .fill(c.bg_base)
             .border(p.hair, c.border_base)
-            .child(line),
+            // The newest words stay in view: older lines leave through
+            // the top, clipped at a line's edge.
+            .child(
+                col()
+                    .key("line")
+                    .max_h(line_h * MAX_LINES)
+                    .justify_end()
+                    .clip_rounded(0.0)
+                    .child(words),
+            ),
     )
 }
 
@@ -255,9 +264,14 @@ mod tests {
     const HEBREW: &str = "אז התוכנית להיום";
 
     fn runtime(stable: &str, tentative: &str, dark: bool) -> Runtime<Plate> {
+        runtime_at(stable, tentative, dark, true)
+    }
+
+    fn runtime_at(stable: &str, tentative: &str, dark: bool, below: bool) -> Runtime<Plate> {
         let plate = Plate {
             stable: stable.into(),
             tentative: tentative.into(),
+            below,
         };
         let mut rt = crate::rune_ui::offscreen::runtime(
             plate,
@@ -282,49 +296,83 @@ mod tests {
     }
 
     #[test]
-    fn a_short_line_hugs_its_words_in_the_middle() {
-        let rt = runtime(SHORT, "", false);
-        let [x, y, w, h] = rect(&rt, "plate").expect("the plate draws");
-        assert!(w < SIZE.0 / 2.0, "the plate hugs a short line: {w}");
-        assert!((x + w / 2.0 - SIZE.0 / 2.0).abs() < 1.0, "centred: {x} {w}");
-        assert!((y + h / 2.0 - SIZE.1 / 2.0).abs() < 1.0, "centred: {y} {h}");
-        assert!(rect(&rt, "tentative").is_none());
-    }
-
-    #[test]
-    fn a_long_line_stays_inside_the_overlay_on_one_line() {
-        for tentative in ["", " together with the team"] {
-            let rt = runtime(LONG, tentative, true);
-            let [x, _, w, h] = rect(&rt, "plate").unwrap();
-            assert!(x >= 0.0 && x + w <= SIZE.0, "inside: {x} {w}");
+    fn a_short_line_hugs_its_words_on_the_huds_side() {
+        for below in [true, false] {
+            let rt = runtime_at(SHORT, "", false, below);
+            let [x, y, w, h] = rect(&rt, "plate").expect("the plate draws");
+            assert!(w < SIZE.0 / 2.0, "the plate hugs a short line: {w}");
+            assert!((x + w / 2.0 - SIZE.0 / 2.0).abs() < 1.0, "centred: {x} {w}");
             assert_eq!(h, PLATE_H);
-            let [line_x, _, line_w, _] = rect(&rt, "line").unwrap();
-            assert!(
-                line_x + line_w <= x + w,
-                "the words fit the plate: {line_x} {line_w}"
-            );
-            let [_, _, _, line] = rect(&rt, "stable").unwrap();
-            assert!(line < PLATE_H, "one line: {line}");
-            assert_eq!(rect(&rt, "tentative").is_some(), !tentative.is_empty());
+            if below {
+                assert!((y - PAD).abs() < 0.5, "hangs from the top: {y}");
+            } else {
+                assert!(
+                    (y + h - (SIZE.1 - PAD)).abs() < 0.5,
+                    "rises from the bottom: {y} {h}"
+                );
+            }
         }
     }
 
     #[test]
-    fn tentative_words_follow_the_stable_ones_in_reading_order() {
-        let rt = runtime(SHORT, " is to finish", false);
-        let [sx, _, sw, _] = rect(&rt, "stable").unwrap();
-        let [tx, _, _, _] = rect(&rt, "tentative").unwrap();
-        assert!(tx >= sx + sw - 0.5, "left to right: {sx} {sw} {tx}");
+    fn a_long_line_wraps_inside_the_overlay() {
+        for tentative in ["", " together with the team"] {
+            let rt = runtime(LONG, tentative, true);
+            let [x, y, w, h] = rect(&rt, "plate").unwrap();
+            assert!(x >= 0.0 && x + w <= SIZE.0, "inside: {x} {w}");
+            assert!(y >= 0.0 && y + h <= SIZE.1, "inside: {y} {h}");
+            assert!(h > PLATE_H, "more than one line: {h}");
+            let [wx, wy, ww, wh] = rect(&rt, "words").unwrap();
+            assert!(
+                wx >= x && wx + ww <= x + w,
+                "the words fit the plate: {wx} {ww}"
+            );
+            assert!(wy >= y && wy + wh <= y + h, "every line shows: {wy} {wh}");
+        }
+    }
 
-        let rt = runtime(HEBREW, " והיום", false);
-        let [sx, _, _, _] = rect(&rt, "stable").unwrap();
-        let [tx, _, tw, _] = rect(&rt, "tentative").unwrap();
-        assert!(tx + tw < sx, "right to left, after a space: {tx} {tw} {sx}");
+    #[test]
+    fn past_the_last_line_the_oldest_lines_scroll_away() {
+        let long = [LONG; 4].join(" ");
+        let rt = runtime(&long, " and the newest words", false);
+        let [_, y, _, h] = rect(&rt, "plate").unwrap();
+        assert!(
+            y >= 0.0 && y + h <= SIZE.1,
+            "the plate stays inside: {y} {h}"
+        );
+        let [_, ly, _, lh] = rect(&rt, "line").unwrap();
+        let [_, wy, _, wh] = rect(&rt, "words").unwrap();
+        assert!(wy < ly, "older lines leave through the top: {wy} {ly}");
+        assert!(
+            (wy + wh - (ly + lh)).abs() < 0.5,
+            "the newest line sits at the bottom: {wy} {wh} {ly} {lh}"
+        );
+    }
 
-        assert!(is_right_to_left(HEBREW, ""));
-        assert!(is_right_to_left("  ", " مرحبا"));
-        assert!(!is_right_to_left(SHORT, " שלום"));
-        assert!(!is_right_to_left("", ""));
+    #[test]
+    fn stable_and_tentative_words_share_one_paragraph() {
+        assert_eq!(
+            words(&Plate {
+                stable: " So the plan ".into(),
+                tentative: " is to finish ".into(),
+                below: true,
+            }),
+            ("So the plan is to finish".into(), 11)
+        );
+        assert_eq!(
+            words(&Plate {
+                stable: "  ".into(),
+                tentative: " so".into(),
+                below: true,
+            }),
+            ("so".into(), 0)
+        );
+        let (hebrew, at) = words(&Plate {
+            stable: HEBREW.into(),
+            tentative: " והיום".into(),
+            below: true,
+        });
+        assert_eq!(&hebrew[at..], " והיום");
     }
 
     #[test]
@@ -353,8 +401,10 @@ mod tests {
         assert_eq!(rect(true), (700.0 - SIZE.0 / 2.0, 100.0 - PAD, SIZE.0));
         assert_eq!(
             rect(false),
-            (700.0 - SIZE.0 / 2.0, 100.0 - PAD - PLATE_H, SIZE.0)
+            (700.0 - SIZE.0 / 2.0, 100.0 - SIZE.1 + PAD, SIZE.0)
         );
+        assert!(Spot::Edge(ScreenEdge::Top, 40.0).below());
+        assert!(!Spot::Edge(ScreenEdge::Bottom, 40.0).below());
     }
 
     #[test]
@@ -380,9 +430,11 @@ mod tests {
     fn snapshots() {
         let folder = std::path::PathBuf::from(std::env::var("HEX_LIVE_TEXT_SNAPS").unwrap());
         let gpu = rune::render::Gpu::try_new(rune::render::Gpu::instance(), None).unwrap();
+        let overflow = [LONG; 4].join(" ");
         for (name, stable, tentative) in [
             ("short", SHORT, ""),
             ("long", LONG, ""),
+            ("overflow", overflow.as_str(), " and the newest words"),
             ("tentative", SHORT, " is to finish"),
             ("rtl", HEBREW, " והיום"),
         ] {
