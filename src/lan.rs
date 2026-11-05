@@ -17,7 +17,9 @@
 mod pairing;
 mod proxy;
 
+use rustls::pki_types::pem::PemObject;
 use std::net::TcpListener;
+use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 
@@ -48,7 +50,7 @@ pub fn start() {
 
 fn watch() {
     static ACTIVE: AtomicUsize = AtomicUsize::new(0);
-    let mut listening: Option<(TcpListener, native_tls::TlsAcceptor)> = None;
+    let mut listening: Option<(TcpListener, Arc<rustls::ServerConfig>)> = None;
     loop {
         if !crate::labs::lan_dictation() {
             if listening.take().is_some() {
@@ -57,7 +59,7 @@ fn watch() {
             std::thread::sleep(Duration::from_secs(1));
             continue;
         }
-        let Some((listener, acceptor)) = &listening else {
+        let Some((listener, config)) = &listening else {
             match bind() {
                 Ok(bound) => listening = Some(bound),
                 Err(error) => {
@@ -73,11 +75,11 @@ fn watch() {
                     continue;
                 }
                 ACTIVE.fetch_add(1, Ordering::AcqRel);
-                let acceptor = acceptor.clone();
+                let config = Arc::clone(config);
                 let spawned = std::thread::Builder::new()
                     .name("lan-request".into())
                     .spawn(move || {
-                        proxy::serve(stream, &acceptor, peer);
+                        proxy::serve(stream, config, peer);
                         ACTIVE.fetch_sub(1, Ordering::AcqRel);
                     });
                 if spawned.is_err() {
@@ -92,16 +94,107 @@ fn watch() {
     }
 }
 
-fn bind() -> color_eyre::Result<(TcpListener, native_tls::TlsAcceptor)> {
+fn bind() -> color_eyre::Result<(TcpListener, Arc<rustls::ServerConfig>)> {
     let certificate = pairing::certificate()?;
-    let identity =
-        native_tls::Identity::from_pkcs8(certificate.pem.as_bytes(), certificate.key.as_bytes())?;
-    let acceptor = native_tls::TlsAcceptor::builder(identity)
-        .min_protocol_version(Some(native_tls::Protocol::Tlsv12))
-        .build()?;
+    let config = server_config(&certificate.pem, &certificate.key)?;
     let listener = TcpListener::bind(("0.0.0.0", port()))?;
     // Polled, so turning the switch off closes the port within a second.
     listener.set_nonblocking(true)?;
     tracing::info!(port = port(), "LAN dictation listening");
-    Ok((listener, acceptor))
+    Ok((listener, config))
+}
+
+/// Always answers with the one certificate.
+#[derive(Debug)]
+struct OneCertificate(Arc<rustls::sign::CertifiedKey>);
+
+impl rustls::server::ResolvesServerCert for OneCertificate {
+    fn resolve(
+        &self,
+        _client_hello: rustls::server::ClientHello<'_>,
+    ) -> Option<Arc<rustls::sign::CertifiedKey>> {
+        Some(Arc::clone(&self.0))
+    }
+}
+
+/// TLS from the PEM certificate and key, held in memory: nothing is imported
+/// into a keychain, so macOS never asks for a keychain password.
+///
+/// The certificate goes in through a resolver rather than `with_single_cert`,
+/// which re-parses it with a strict X.509 reader that refuses the version 1
+/// certificates macOS's LibreSSL `openssl` makes. Phones pin the certificate's
+/// fingerprint and don't care, and keeping it keeps every pairing valid.
+fn server_config(pem: &str, key: &str) -> color_eyre::Result<Arc<rustls::ServerConfig>> {
+    let provider = Arc::new(rustls::crypto::ring::default_provider());
+    let chain = rustls::pki_types::CertificateDer::pem_slice_iter(pem.as_bytes())
+        .collect::<Result<Vec<_>, _>>()?;
+    let key = rustls::pki_types::PrivateKeyDer::from_pem_slice(key.as_bytes())?;
+    let signing_key = provider.key_provider.load_private_key(key)?;
+    let certified = Arc::new(rustls::sign::CertifiedKey::new(chain, signing_key));
+    let config = rustls::ServerConfig::builder_with_provider(provider)
+        .with_protocol_versions(rustls::DEFAULT_VERSIONS)?
+        .with_no_client_auth()
+        .with_cert_resolver(Arc::new(OneCertificate(certified)));
+    Ok(Arc::new(config))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::{Read, Write};
+
+    /// A TLS client's handshake against the openssl-made certificate the listener
+    /// has always used, answered over TLS.
+    #[test]
+    fn serves_tls_with_an_openssl_certificate() {
+        let dir = std::env::temp_dir().join(format!("tiro-lan-tls-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let (cert, key) = (dir.join("cert.pem"), dir.join("key.pem"));
+        let made = std::process::Command::new("/usr/bin/openssl")
+            .args([
+                "req", "-x509", "-newkey", "rsa:2048", "-nodes", "-days", "1",
+            ])
+            .args(["-subj", "/CN=test", "-keyout"])
+            .arg(&key)
+            .arg("-out")
+            .arg(&cert)
+            .output()
+            .unwrap();
+        assert!(made.status.success());
+        let config = server_config(
+            &std::fs::read_to_string(&cert).unwrap(),
+            &std::fs::read_to_string(&key).unwrap(),
+        )
+        .unwrap();
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = std::thread::spawn(move || {
+            let (stream, peer) = listener.accept().unwrap();
+            proxy::serve(stream, config, peer);
+        });
+        let mut client = std::process::Command::new("/usr/bin/openssl")
+            .args(["s_client", "-quiet", "-connect"])
+            .arg(address.to_string())
+            .stdin(std::process::Stdio::piped())
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::null())
+            .spawn()
+            .unwrap();
+        client
+            .stdin
+            .take()
+            .unwrap()
+            .write_all(b"GET /nope HTTP/1.1\r\nHost: x\r\n\r\n")
+            .unwrap();
+        let mut answer = String::new();
+        client
+            .stdout
+            .take()
+            .unwrap()
+            .read_to_string(&mut answer)
+            .unwrap();
+        server.join().unwrap();
+        std::fs::remove_dir_all(&dir).ok();
+        assert!(answer.starts_with("HTTP/1.1 4"), "{answer}");
+    }
 }

@@ -5,6 +5,7 @@
 
 use std::io::{Read, Write};
 use std::net::{SocketAddr, TcpStream};
+use std::sync::Arc;
 use std::time::Duration;
 
 const MAX_HEAD_BYTES: usize = 16 * 1024;
@@ -117,6 +118,12 @@ pub(super) fn upstream_head(head: &Head, forward: &Forward, loopback_token: &str
     out
 }
 
+/// Sends TLS close_notify and flushes it.
+fn close(client: &mut rustls::StreamOwned<rustls::ServerConnection, TcpStream>) {
+    client.conn.send_close_notify();
+    let _ = client.flush();
+}
+
 fn refuse(stream: &mut impl Write, Refusal(status, code): Refusal) {
     let body = format!("{{\"code\":\"{code}\"}}");
     let _ = write!(
@@ -168,7 +175,7 @@ fn selection() -> String {
     )
 }
 
-pub(super) fn serve(stream: TcpStream, acceptor: &native_tls::TlsAcceptor, peer: SocketAddr) {
+pub(super) fn serve(stream: TcpStream, config: Arc<rustls::ServerConfig>, peer: SocketAddr) {
     // Accepted from a nonblocking listener.
     if stream.set_nonblocking(false).is_err()
         || stream.set_read_timeout(Some(CLIENT_TIMEOUT)).is_err()
@@ -176,10 +183,11 @@ pub(super) fn serve(stream: TcpStream, acceptor: &native_tls::TlsAcceptor, peer:
     {
         return;
     }
-    let Ok(mut client) = acceptor.accept(stream) else {
-        tracing::debug!(%peer, "LAN TLS handshake failed");
+    let Ok(connection) = rustls::ServerConnection::new(config) else {
         return;
     };
+    // The handshake runs on the first read.
+    let mut client = rustls::StreamOwned::new(connection, stream);
     let Some((head_bytes, body)) = read_head(&mut client) else {
         return;
     };
@@ -231,13 +239,13 @@ pub(super) fn serve(stream: TcpStream, acceptor: &native_tls::TlsAcceptor, peer:
             return refuse(&mut client, Refusal(502, "tiro-unreachable"));
         }
         let _ = client.write_all(&answer);
-        let _ = client.shutdown();
+        close(&mut client);
         return;
     }
     if let Err(error) = std::io::copy(&mut upstream, &mut client) {
         tracing::debug!(%error, %peer, "LAN response copy ended early");
     }
-    let _ = client.shutdown();
+    close(&mut client);
 }
 
 #[cfg(test)]
