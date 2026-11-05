@@ -613,8 +613,8 @@ fn rows(ui: &Ui) -> Vec<Row> {
     rows.push(row(
         Feature::ScribeCleanup,
         None,
-        "Clean up with Vedu Scribe".into(),
-        "Clean up each dictation on this Mac: fillers, false starts, and self-corrections go; technical terms stay".into(),
+        "Clean up with Vedu Scribe",
+        "Clean up each dictation on this Mac: fillers, false starts, and self-corrections go; technical terms stay",
     ));
     rows.push(row(
         Feature::HistoryStats,
