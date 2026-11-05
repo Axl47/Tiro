@@ -611,6 +611,12 @@ fn rows(ui: &Ui) -> Vec<Row> {
         tr("Remove filler words such as um and uh from dictations, without an AI model"),
     ));
     rows.push(row(
+        Feature::ScribeCleanup,
+        None,
+        "Clean up with Vedu Scribe".into(),
+        "Clean up each dictation on this Mac: fillers, false starts, and self-corrections go; technical terms stay".into(),
+    ));
+    rows.push(row(
         Feature::HistoryStats,
         None,
         tr("Dictation stats"),
@@ -735,6 +741,7 @@ fn row_key(lab: Lab) -> &'static str {
         Feature::CopyOnly => "lab-copy-only",
         Feature::SpokenFormatting => "lab-spoken-formatting",
         Feature::FillerWords => "lab-filler-words",
+        Feature::ScribeCleanup => "lab-scribe-cleanup",
         Feature::SubtitleExport => "lab-subtitle-export",
         Feature::SecondDictationShortcut => "lab-second-dictation-shortcut",
         Feature::SmartSpacing => "lab-smart-spacing",

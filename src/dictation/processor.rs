@@ -312,7 +312,7 @@ impl Profiles {
 
     pub fn processes(&self, context: &ContextSnapshot) -> bool {
         let profile = self.select(context);
-        profile.ai_enabled || !profile.transformations.is_empty()
+        crate::labs::scribe_cleanup() || profile.ai_enabled || !profile.transformations.is_empty()
     }
 
     pub fn process_cancellable(
@@ -344,6 +344,24 @@ impl Profiles {
         let transcript = if crate::labs::filler_words() {
             unfilled = crate::dictation::filler_words::apply(transcript);
             unfilled.as_str()
+        } else {
+            transcript
+        };
+        // Scribe rewrites casing, so the person's exact corrections run after it.
+        let scribed;
+        let transcript = if crate::labs::scribe_cleanup() {
+            let vocabulary = crate::dictation::vocabulary::merged(
+                &profile.vocabulary,
+                &crate::dictation::vocabulary::entries(),
+            );
+            scribed = crate::dictation::cleanup::apply(transcript, &vocabulary, cancelled);
+            tracing::info!(
+                profile = profile.name,
+                latency_ms = scribed.latency.as_millis() as u64,
+                fallback = ?scribed.fallback,
+                "dictation cleanup finished"
+            );
+            scribed.text.as_str()
         } else {
             transcript
         };

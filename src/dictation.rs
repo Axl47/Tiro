@@ -8,6 +8,7 @@ pub(crate) mod config;
 pub(crate) mod context;
 #[cfg(target_os = "macos")]
 pub(crate) mod diagnostics;
+pub(crate) mod cleanup;
 pub(crate) mod filler_words;
 pub(crate) mod indicator;
 pub(crate) mod live_text;
@@ -1157,6 +1158,8 @@ impl DictationCapture {
         let Some(recording) = &mut self.recording else {
             return;
         };
+        // Loads the cleanup model while the person speaks, if it went idle.
+        crate::dictation::cleanup::prepare();
         if recording.stream.is_none() {
             recording.stream = engine.begin();
             recording.feed_stream();

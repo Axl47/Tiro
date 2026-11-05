@@ -93,6 +93,7 @@ impl Category {
             | Feature::SpokenFormatting
             | Feature::SpokenSymbols
             | Feature::FillerWords
+            | Feature::ScribeCleanup
             | Feature::VocabularyBiasing
             | Feature::PauseBrowser
             | Feature::KeepRecordings
@@ -168,6 +169,7 @@ impl Place {
             | Feature::SpokenFormatting
             | Feature::SpokenSymbols
             | Feature::FillerWords
+            | Feature::ScribeCleanup
             | Feature::KeepOnClipboard
             | Feature::CopyOnly
             | Feature::SkipPauses

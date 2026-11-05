@@ -27,6 +27,8 @@ pub struct LabsSettings {
     pub spoken_formatting: bool,
     /// Filler words such as "um" and "uh" are removed from dictations (issue 631).
     pub filler_words: bool,
+    /// Vedu Scribe rewrites each dictation (`dictation::cleanup`). Tiro's point, so on.
+    pub scribe_cleanup: bool,
     /// `hex meetings show --srt|--vtt` exports a transcript as timed subtitles (macOS, issue 633).
     pub subtitle_export: bool,
     /// `second_dictation_hotkey` dictates like the dictation shortcut (macOS, issue 627).
@@ -108,6 +110,7 @@ impl Default for LabsSettings {
             copy_only: false,
             spoken_formatting: false,
             filler_words: false,
+            scribe_cleanup: true,
             subtitle_export: false,
             second_dictation_shortcut: false,
             smart_spacing: false,

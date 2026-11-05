@@ -340,6 +340,11 @@ const KEYS: &[Key] = &[
         "Labs: remove filler words such as um and uh from dictations, without an AI model",
     ),
     key(
+        "labs.scribe_cleanup",
+        Kind::Bool,
+        "Labs: clean up each dictation on this Mac with Vedu Scribe",
+    ),
+    key(
         "labs.subtitle_export",
         Kind::Bool,
         "Labs: export meeting transcripts as SRT or VTT subtitles with hex meetings show --srt|--vtt",

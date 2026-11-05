@@ -28,7 +28,7 @@ use color_eyre::eyre::eyre;
 use crate::app_settings::{AppSettings, LabsSettings};
 
 /// Where people send feedback on Labs features.
-pub const FEEDBACK_URL: &str = "https://github.com/anomalyco/hex/issues/new";
+pub const FEEDBACK_URL: &str = "https://github.com/Axl47/Tiro/issues/new";
 
 /// Who a Labs feature is for.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -76,6 +76,7 @@ pub enum Feature {
     CopyOnly,
     SpokenFormatting,
     FillerWords,
+    ScribeCleanup,
     SubtitleExport,
     SecondDictationShortcut,
     SmartSpacing,
@@ -112,7 +113,7 @@ pub enum Feature {
 }
 
 impl Feature {
-    pub const ALL: [Self; 50] = [
+    pub const ALL: [Self; 51] = [
         Self::Meetings,
         Self::VoiceFilter,
         Self::Playground,
@@ -130,6 +131,7 @@ impl Feature {
         Self::CopyOnly,
         Self::SpokenFormatting,
         Self::FillerWords,
+        Self::ScribeCleanup,
         Self::SubtitleExport,
         Self::SecondDictationShortcut,
         Self::SmartSpacing,
@@ -203,6 +205,7 @@ impl Feature {
             | Self::CopyOnly
             | Self::SpokenFormatting
             | Self::FillerWords
+            | Self::ScribeCleanup
             | Self::SubtitleExport
             | Self::SecondDictationShortcut
             | Self::SmartSpacing
@@ -259,6 +262,7 @@ impl Feature {
             | Self::CopyOnly
             | Self::SpokenFormatting
             | Self::FillerWords
+            | Self::ScribeCleanup
             | Self::SubtitleExport
             | Self::SecondDictationShortcut
             | Self::SmartSpacing
@@ -381,7 +385,8 @@ impl Feature {
             | Self::MeetingPlatformIcons
             | Self::FollowLiveTranscript
             | Self::CollapsibleMeetingSections
-            | Self::FillerWords => true,
+            | Self::FillerWords
+            | Self::ScribeCleanup => true,
         }
     }
 
@@ -405,6 +410,7 @@ impl Feature {
             Self::CopyOnly => "copy-only",
             Self::SpokenFormatting => "spoken-formatting",
             Self::FillerWords => "filler-words",
+            Self::ScribeCleanup => "scribe-cleanup",
             Self::SubtitleExport => "subtitle-export",
             Self::SecondDictationShortcut => "second-dictation-shortcut",
             Self::SmartSpacing => "smart-spacing",
@@ -461,6 +467,7 @@ impl Feature {
             Self::CopyOnly => "labs.copy_only",
             Self::SpokenFormatting => "labs.spoken_formatting",
             Self::FillerWords => "labs.filler_words",
+            Self::ScribeCleanup => "labs.scribe_cleanup",
             Self::SubtitleExport => "labs.subtitle_export",
             Self::SecondDictationShortcut => "labs.second_dictation_shortcut",
             Self::SmartSpacing => "labs.smart_spacing",
@@ -533,6 +540,9 @@ impl Feature {
             }
             Self::FillerWords => {
                 "Remove filler words such as um and uh from dictations, without an AI model"
+            }
+            Self::ScribeCleanup => {
+                "Clean up each dictation on this Mac with Vedu Scribe: fillers, false starts, and self-corrections go; technical terms stay"
             }
             Self::SubtitleExport => {
                 "Export meeting transcripts as SRT or VTT subtitles with hex meetings show"
@@ -659,6 +669,7 @@ impl Feature {
             Self::CopyOnly => settings.labs.copy_only,
             Self::SpokenFormatting => settings.labs.spoken_formatting,
             Self::FillerWords => settings.labs.filler_words,
+            Self::ScribeCleanup => settings.labs.scribe_cleanup,
             Self::SubtitleExport => settings.labs.subtitle_export,
             Self::SecondDictationShortcut => settings.labs.second_dictation_shortcut,
             Self::SmartSpacing => settings.labs.smart_spacing,
@@ -717,6 +728,7 @@ impl Feature {
             &mut labs.copy_only,
             &mut labs.spoken_formatting,
             &mut labs.filler_words,
+            &mut labs.scribe_cleanup,
             &mut labs.subtitle_export,
             &mut labs.second_dictation_shortcut,
             &mut labs.smart_spacing,
@@ -777,6 +789,7 @@ impl Feature {
             Self::CopyOnly => settings.labs.copy_only = on,
             Self::SpokenFormatting => settings.labs.spoken_formatting = on,
             Self::FillerWords => settings.labs.filler_words = on,
+            Self::ScribeCleanup => settings.labs.scribe_cleanup = on,
             Self::SubtitleExport => settings.labs.subtitle_export = on,
             Self::SecondDictationShortcut => settings.labs.second_dictation_shortcut = on,
             Self::SmartSpacing => settings.labs.smart_spacing = on,
@@ -856,8 +869,9 @@ const MEETING_FINISHED_EVENT: u64 = 1 << 28;
 const GNOME_MEETING_CAPSULES: u64 = 1 << 29;
 const SCREENSHOTS: u64 = 1 << 30;
 const ANNOTATE_REPLAY: u64 = 1 << 31;
+const SCRIBE_CLEANUP: u64 = 1 << 32;
 /// Unload-idle minutes (at most 1,440, 11 bits) sit above the switches.
-const MINUTES_SHIFT: u64 = 32;
+const MINUTES_SHIFT: u64 = 33;
 
 /// This process's `labs` switches: unknown until settings load or one is
 /// first read.
@@ -934,6 +948,13 @@ pub fn spoken_symbols() -> bool {
 /// dictation's processing starts).
 pub fn filler_words() -> bool {
     on(FILLER_WORDS)
+}
+
+/// Vedu Scribe cleans up dictations (read as each dictation's processing
+/// starts, and before the cleanup model is loaded).
+pub fn scribe_cleanup() -> bool {
+    // Unit tests of the surrounding pipeline never load or download a model.
+    !cfg!(test) && on(SCRIBE_CLEANUP)
 }
 
 /// `hex meetings show --srt|--vtt` may export subtitles (read when the
@@ -1128,6 +1149,11 @@ fn encode_where(settings: &LabsSettings, reaches: impl Fn(Feature) -> bool) -> u
             SPOKEN_FORMATTING,
         ),
         (Feature::FillerWords, settings.filler_words, FILLER_WORDS),
+        (
+            Feature::ScribeCleanup,
+            settings.scribe_cleanup,
+            SCRIBE_CLEANUP,
+        ),
         (
             Feature::SubtitleExport,
             settings.subtitle_export,
@@ -1394,9 +1420,11 @@ mod tests {
     fn every_feature_is_off_by_default_and_round_trips() {
         let mut settings = AppSettings::default();
         for feature in Feature::ALL {
-            assert!(
-                !feature.on(&settings),
-                "{} is on by default",
+            // Tiro exists for this one.
+            assert_eq!(
+                feature.on(&settings),
+                feature == Feature::ScribeCleanup,
+                "{} has the wrong default",
                 feature.name()
             );
             assert_eq!(Feature::from_name(feature.name()), Some(feature));

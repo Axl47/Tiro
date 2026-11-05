@@ -13,6 +13,7 @@ use serde::Serialize;
 
 use crate::desktop::events::{EventLog, VoiceEvent, now_ms};
 
+mod cleanup;
 mod dictation;
 mod discovery;
 mod http;
@@ -611,6 +612,16 @@ fn http_worker(pending: Arc<Mutex<Receiver<TcpStream>>>, context: Arc<HttpContex
                     tracing::debug!(%error, "control client disconnected");
                 }
             }
+            RequestAction::Cleanup {
+                content_length,
+                body_prefix,
+            } => {
+                let response =
+                    cleanup::handle(&mut stream, content_length, body_prefix, &context.shutdown);
+                if let Err(error) = write_response(&mut stream, response) {
+                    tracing::debug!(%error, "cleanup client disconnected");
+                }
+            }
             RequestAction::DictationStart {
                 content_length,
                 body_prefix,
@@ -657,6 +668,19 @@ fn handle_request(request: HttpRequest, context: &HttpContext) -> RequestAction 
             MAX_CONTROL_BYTES,
             "control-too-large",
             |content_length, body_prefix| RequestAction::Control {
+                content_length,
+                body_prefix,
+            },
+        );
+    }
+    if request.method == "POST" && path == "/cleanup" {
+        return json_post_action(
+            request,
+            true,
+            "cleanup-unavailable",
+            cleanup::MAX_BYTES,
+            "cleanup-too-large",
+            |content_length, body_prefix| RequestAction::Cleanup {
                 content_length,
                 body_prefix,
             },
@@ -1357,6 +1381,10 @@ impl AuthObservationLimiter {
 
 enum RequestAction {
     Respond(HttpResponse),
+    Cleanup {
+        content_length: usize,
+        body_prefix: Vec<u8>,
+    },
     Prepare {
         model: &'static crate::transcription::models::ModelDefinition,
         selection: crate::transcription::models::TranscriptionSelection,
