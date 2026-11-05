@@ -195,7 +195,16 @@ public func hexAppleIntelligenceAvailability() -> Int32 {
 public func hexAppleIntelligenceContextSize() -> Int {
     #if canImport(FoundationModels)
     guard #available(macOS 26.0, *) else { return 0 }
-    return SystemLanguageModel.default.contextSize
+    // `contextSize` became `async throws` in the macOS 26.4 SDK. `await` and
+    // `try` only warn on an older SDK, so this one form compiles on both.
+    final class Box: @unchecked Sendable { var size = 0 }
+    let box = Box()
+    let semaphore = DispatchSemaphore(value: 0)
+    Task.detached(priority: .utility) {
+        box.size = (try? await SystemLanguageModel.default.contextSize) ?? 0
+        semaphore.signal()
+    }
+    return semaphore.wait(timeout: .now() + 2) == .success ? box.size : 0
     #else
     return 0
     #endif
