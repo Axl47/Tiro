@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="keyboard_background">#FF1C1B19</color>
+    <color name="key_background">#FF2E2C29</color>
+    <color name="key_text">#FFEDEBE7</color>
+    <color name="keyboard_muted">#FFA39F98</color>
+    <color name="mic_idle">#FFEDEBE7</color>
+    <color name="mic_active">#FFEA7B4B</color>
+    <color name="mic_disabled">#FF5C5954</color>
+    <color name="mic_text">#FF1C1B19</color>
+    <color name="accent">#FFEA7B4B</color>
+</resources>

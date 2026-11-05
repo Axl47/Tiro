@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Tiro</string>
+    <string name="keyboard_name">Tiro voice</string>
+    <string name="tagline">Dictate through your Mac. It transcribes and cleans up; this phone types.</string>
+
+    <string name="section_mac">Your Mac</string>
+    <string name="paired">Paired with %1$s:%2$d as \"%3$s\".</string>
+    <string name="unpaired_help">Not paired. On your Mac, run `hex labs on lan-dictation`, then `hex lan pair`, and scan the code with this phone\'s camera.</string>
+    <string name="test">Test</string>
+    <string name="pair_clipboard">Paste link</string>
+    <string name="unpair">Unpair</string>
+    <string name="pair_invalid">That isn\'t a Tiro pairing link.</string>
+    <string name="pair_confirm_title">Pair with this Mac?</string>
+    <string name="pair_confirm_body">Dictation from this phone will go to %1$s:%2$d, paired as \"%3$s\". Only pair with a link from your own Mac.</string>
+    <string name="pair_confirm">Pair</string>
+    <string name="testing">Connecting…</string>
+    <string name="connected">Connected to Tiro %1$s in %2$d ms.</string>
+
+    <string name="section_keyboard">Keyboard</string>
+    <string name="microphone_allow">Allow the microphone</string>
+    <string name="microphone_allowed">Microphone allowed</string>
+    <string name="keyboard_enable">Turn on the Tiro keyboard</string>
+    <string name="keyboard_enabled">Tiro keyboard is on</string>
+    <string name="keyboard_choose">Switch keyboards</string>
+
+    <string name="section_try">Try it</string>
+    <string name="try_hint">Tap here, switch to Tiro voice, and hold the mic.</string>
+
+    <string name="mic_idle">🎙  Hold to talk</string>
+    <string name="mic_listening">●  Listening</string>
+    <string name="mic_working">…</string>
+    <string name="mic_description">Microphone. Hold to talk, or tap to start and tap again to finish.</string>
+    <string name="switch_keyboard">Switch keyboard</string>
+    <string name="backspace">Delete</string>
+    <string name="enter">Enter</string>
+
+    <string name="status_idle">Hold to talk, or tap to start and tap to finish.</string>
+    <string name="status_listening">Listening… let go to finish.</string>
+    <string name="status_locked">Listening… tap to finish.</string>
+    <string name="status_working">Transcribing on your Mac…</string>
+    <string name="status_done">Typed in %1$.1f s.</string>
+    <string name="status_nothing">Didn\'t catch anything.</string>
+    <string name="status_no_field">The text field went away.</string>
+    <string name="status_unpaired">Open Tiro to pair with your Mac.</string>
+    <string name="status_no_microphone">Open Tiro to allow the microphone.</string>
+    <string name="status_failed">Something went wrong.</string>
+</resources>

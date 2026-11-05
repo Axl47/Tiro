@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A microphone over a stroke: speech becoming writing. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path android:fillColor="#FFFFFFFF"
+        android:pathData="M54,30a9,9 0,0 1,9 9v14a9,9 0,0 1,-18 0V39a9,9 0,0 1,9 -9z" />
+    <path android:strokeColor="#FFFFFFFF" android:strokeWidth="4" android:strokeLineCap="round"
+        android:pathData="M39,51a15,15 0,0 0,30 0M54,66v8M40,80h28" />
+</vector>
