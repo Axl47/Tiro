@@ -53,11 +53,19 @@ Mac.
   cleanup round-trip; early errors from the API reach the client intact.
 - The Android app builds (debug and a 64 KB release), passes its unit tests (pairing
   links, WAV headers, fingerprints, spacing), and passes lint with no errors.
-- **Not yet run on a device or emulator.** The emulator was in use by another session.
-  Debug builds can play `files/fixture.wav` instead of the microphone, so the full path
-  can be tested there without recording anyone:
-  `adb shell run-as dev.axl47.tiro cp /data/local/tmp/clip.wav files/fixture.wav`.
-- Not measured: latency over real Wi-Fi, and the macOS firewall prompt, which appears
+- **On the Android 16 emulator, end to end** (2026-11-05), with a debug build playing a
+  15 s clip instead of the microphone (`files/fixture.wav`):
+  - the `tiro://pair` link opens the confirmation, and pairing then connects over pinned
+    TLS (279 ms for the first request, handshake included);
+  - the microphone permission, turning the keyboard on in Settings, and choosing it;
+  - tap to start and tap to finish typed the cleaned text into the field, 1.1-1.2 s
+    after the second tap, three times; a second dictation is spaced after the first;
+  - with Tiro quit on the Mac, the keyboard says it can't reach the Mac.
+- Fixed on the emulator: Android 15+ drew the system's navigation buttons over the
+  bottom keys; the keyboard now pads itself above the navigation bar.
+- Not verified: Backspace and Enter (the field's text was hidden from the checks), a real
+  microphone, and holding rather than tapping the mic.
+- Not measured: latency over real Wi-Fi (the emulator reaches the Mac through loopback), and the macOS firewall prompt, which appears
   when an app first listens on the network if the firewall is on.
 
 ## Next

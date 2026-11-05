@@ -1,12 +1,14 @@
 package dev.axl47.tiro
 
 import android.inputmethodservice.InputMethodService
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
 import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.View
+import android.view.WindowInsets
 import android.view.inputmethod.EditorInfo
 import android.widget.TextView
 import java.util.concurrent.Executors
@@ -65,6 +67,19 @@ class TiroKeyboard : InputMethodService() {
             sendDownUpKeyEvents(KeyEvent.KEYCODE_DEL)
         }
         view.findViewById<View>(R.id.enter).setOnClickListener { enter() }
+        // Android 15+ draws the keyboard under the navigation bar, whose back and
+        // keyboard-switch buttons would otherwise sit on top of these keys.
+        val bottom = view.paddingBottom
+        view.setOnApplyWindowInsetsListener { padded, insets ->
+            val navigation = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                insets.getInsets(WindowInsets.Type.navigationBars()).bottom
+            } else {
+                @Suppress("DEPRECATION")
+                insets.systemWindowInsetBottom
+            }
+            padded.setPadding(padded.paddingLeft, padded.paddingTop, padded.paddingRight, bottom + navigation)
+            insets
+        }
         render(idleStatus())
         return view
     }
