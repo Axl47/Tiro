@@ -1,5 +1,7 @@
 # Android over LAN
 
+The Android launcher uses the desktop app’s silver hexagon artwork, inset for adaptive icon masks.
+
 The phone records; the Mac does everything else. The phone runs no model.
 
 ```text
