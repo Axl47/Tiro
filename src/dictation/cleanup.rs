@@ -6,8 +6,8 @@
 //! The model only runs inside this boundary, and never gets the last word:
 //!
 //! ```text
-//! transcript ─▶ vocabulary pre-match ─▶ Scribe ─▶ faithfulness ─▶ residue ─▶ text
-//!                                         └─ unavailable, late, or unfaithful ─┘
+//! transcript ─▶ spoken paths ─▶ vocabulary ─▶ Scribe ─▶ faithfulness ─▶ residue ─▶ text
+//!                                               └─ unavailable, late, or unfaithful ─┘
 //!                                                     (deterministic residue only)
 //! ```
 //!
@@ -16,6 +16,7 @@
 mod faithful;
 mod residue;
 mod sidecar;
+mod spoken_paths;
 mod vocab;
 
 use std::sync::atomic::AtomicBool;
@@ -48,12 +49,14 @@ pub struct Cleaned {
     pub latency: Duration,
 }
 
-/// How long a dictation may wait on the model. Long dictations get longer:
-/// measured on an M1 Pro, Scribe takes roughly 10 ms per spoken word warm.
+/// How long a dictation may wait on the model before pasting without it. Scribe
+/// usually takes about 10 ms per spoken word on an M1 Pro, but several times that
+/// while the machine is busy, which on a development Mac is normal. A miss quietly
+/// costs the dictation its cleanup, so this is the limit of patience, not a target.
 fn deadline_for(words: usize) -> Duration {
-    const BASE: Duration = Duration::from_millis(1_500);
-    const PER_WORD: Duration = Duration::from_millis(25);
-    const MOST: Duration = Duration::from_secs(12);
+    const BASE: Duration = Duration::from_secs(3);
+    const PER_WORD: Duration = Duration::from_millis(40);
+    const MOST: Duration = Duration::from_secs(15);
     (BASE + PER_WORD * u32::try_from(words).unwrap_or(u32::MAX)).min(MOST)
 }
 
@@ -71,6 +74,8 @@ pub fn apply(transcript: &str, entries: &[VocabularyEntry], cancelled: &AtomicBo
             latency: started.elapsed(),
         }
     };
+    let written = spoken_paths::write_out(transcript);
+    let transcript = written.as_str();
     let terms = vocab::select(transcript, entries);
     let words = transcript.split_whitespace().count();
     // Trained on lowercase speech. Measured on real Parakeet transcripts this

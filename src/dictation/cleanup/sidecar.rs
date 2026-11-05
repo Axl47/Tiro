@@ -22,22 +22,44 @@ pub(super) mod pinned {
     pub const REVISION: &str = "7dced5841c58d7d6e0118c4c123f222b35057871";
     /// `(name, bytes, sha256)`.
     pub const FILES: &[(&str, u64, &str)] = &[
-        ("chat_template.jinja", 7_755, "273d8e0e683b885071fb17e08d71e5f2a5ddfb5309756181681de4f5a1822d80"),
-        ("config.json", 60_445, "a02e0e16a518b5a3baa307941b90f2b19f4730aa775c2babd3993d39de770654"),
-        ("model.safetensors", 540_713_766, "9912660269b0a57dec85a368fa37b23ed7e76ca438b05b9b2238b4b887e7d2e6"),
-        ("model.safetensors.index.json", 60_784, "437540ae055104cac70097c3b8706d5c46fd821f438b0fa06adddbed3683455f"),
-        ("tokenizer.json", 19_989_339, "a5cd9732badce41de57e6efce8302930ded1c1188c5f81feb2bd6c24c4a1941f"),
-        ("tokenizer_config.json", 1_502, "4d2fc7899270dc76b57a7aa1d5ec3234e6a25934c6e2aea6166f989f1d453892"),
+        (
+            "chat_template.jinja",
+            7_755,
+            "273d8e0e683b885071fb17e08d71e5f2a5ddfb5309756181681de4f5a1822d80",
+        ),
+        (
+            "config.json",
+            60_445,
+            "a02e0e16a518b5a3baa307941b90f2b19f4730aa775c2babd3993d39de770654",
+        ),
+        (
+            "model.safetensors",
+            540_713_766,
+            "9912660269b0a57dec85a368fa37b23ed7e76ca438b05b9b2238b4b887e7d2e6",
+        ),
+        (
+            "model.safetensors.index.json",
+            60_784,
+            "437540ae055104cac70097c3b8706d5c46fd821f438b0fa06adddbed3683455f",
+        ),
+        (
+            "tokenizer.json",
+            19_989_339,
+            "a5cd9732badce41de57e6efce8302930ded1c1188c5f81feb2bd6c24c4a1941f",
+        ),
+        (
+            "tokenizer_config.json",
+            1_502,
+            "4d2fc7899270dc76b57a7aa1d5ec3234e6a25934c6e2aea6166f989f1d453892",
+        ),
     ];
 }
 
 /// The weights' folder, named by revision so a new pin never mixes files.
 #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 fn model_dir() -> color_eyre::Result<PathBuf> {
-    Ok(crate::transcription::models::models_dir()?.join(format!(
-        "vedu-scribe-{}",
-        &pinned::REVISION[..8]
-    )))
+    Ok(crate::transcription::models::models_dir()?
+        .join(format!("vedu-scribe-{}", &pinned::REVISION[..8])))
 }
 
 #[cfg(target_os = "macos")]
@@ -97,15 +119,19 @@ mod macos {
         ready: bool,
         next_id: u64,
         last_used: Instant,
+        /// Requests in a row that missed their deadline.
+        missed: u32,
     }
 
     impl Helper {
         fn spawn() -> Result<Self> {
-            let binary = helper_path()?;
-            let model = model_dir()?;
-            let mut child = Command::new(&binary)
+            Self::spawn_at(&helper_path()?, &model_dir()?)
+        }
+
+        fn spawn_at(binary: &std::path::Path, model: &std::path::Path) -> Result<Self> {
+            let mut child = Command::new(binary)
                 .arg("--model")
-                .arg(&model)
+                .arg(model)
                 .stdin(Stdio::piped())
                 .stdout(Stdio::piped())
                 .stderr(Stdio::null())
@@ -139,15 +165,22 @@ mod macos {
                 ready: false,
                 next_id: 0,
                 last_used: Instant::now(),
+                missed: 0,
             })
         }
 
         /// Blocks until the helper announces it is warm, at most until `by`.
+        /// Running out of time here is not the helper's fault: loading takes
+        /// longer than a short dictation's deadline, so it keeps loading for
+        /// the next one.
         fn wait_ready(&mut self, by: Instant, cancelled: &AtomicBool) -> Result<(), Fallback> {
             while !self.ready {
-                match self.next_line(by, cancelled)? {
-                    line if line.event.as_deref() == Some("ready") => self.ready = true,
-                    _ => {}
+                match self.next_line(by, cancelled) {
+                    Ok(line) => self.ready = line.event.as_deref() == Some("ready"),
+                    Err(Fallback::Late) => {
+                        return Err(Fallback::Unavailable("still loading".into()));
+                    }
+                    Err(other) => return Err(other),
                 }
             }
             Ok(())
@@ -181,6 +214,22 @@ mod macos {
             cancelled: &AtomicBool,
         ) -> Result<String, Fallback> {
             self.wait_ready(by, cancelled)?;
+            let result = self.request(transcript, vocab, by, cancelled);
+            match result {
+                Ok(_) => self.missed = 0,
+                Err(Fallback::Late) => self.missed += 1,
+                Err(_) => {}
+            }
+            result
+        }
+
+        fn request(
+            &mut self,
+            transcript: &str,
+            vocab: &[String],
+            by: Instant,
+            cancelled: &AtomicBool,
+        ) -> Result<String, Fallback> {
             self.next_id += 1;
             self.last_used = Instant::now();
             let id = self.next_id;
@@ -204,7 +253,7 @@ mod macos {
                 if let Some(error) = reply.error {
                     return Err(Fallback::Failed(error));
                 }
-                tracing::debug!(elapsed_ms = reply.elapsed_ms, "cleanup answered");
+                tracing::info!(helper_ms = reply.elapsed_ms, "cleanup answered");
                 return reply
                     .text
                     .ok_or_else(|| Fallback::Failed("an answer without text".into()));
@@ -362,8 +411,12 @@ mod macos {
             });
     }
 
-    /// One request against the warm helper. A helper that missed the deadline or
-    /// died is dropped: its state is unknown, and the next press reloads it.
+    /// One late answer is usually one long dictation, and reloading costs more
+    /// than letting it finish. Two in a row mean it is wedged.
+    const MISSES_BEFORE_RESTART: u32 = 2;
+
+    /// One request against the warm helper. A helper that died, or keeps missing
+    /// its deadline, is dropped; the next press reloads it.
     pub fn clean(
         transcript: &str,
         vocab: &[String],
@@ -392,9 +445,97 @@ mod macos {
             .as_mut()
             .ok_or_else(|| Fallback::Unavailable("the helper stopped".into()))?;
         let result = helper.clean(transcript, vocab, by, cancelled);
-        if matches!(result, Err(Fallback::Late | Fallback::Failed(_))) {
+        if matches!(result, Err(Fallback::Failed(_))) || helper.missed >= MISSES_BEFORE_RESTART {
             *slot = None;
         }
         result
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use std::os::unix::fs::PermissionsExt as _;
+
+        use super::*;
+
+        /// A helper speaking the protocol from a shell script, slow to load.
+        fn fake_helper(directory: &std::path::Path, load_seconds: f32, answer: &str) -> Helper {
+            let script = directory.join("fake-helper");
+            std::fs::write(
+                &script,
+                format!(
+                    "#!/bin/sh\nsleep {load_seconds}\necho '{{\"event\":\"ready\"}}'\nid=0\n\
+                     while read -r _; do id=$((id+1)); {answer}; done\n"
+                ),
+            )
+            .unwrap();
+            std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
+            Helper::spawn_at(&script, directory).unwrap()
+        }
+
+        const ANSWER: &str = r#"echo "{\"id\":$id,\"text\":\"clean\"}""#;
+
+        #[test]
+        fn a_deadline_shorter_than_the_load_leaves_the_helper_loading() {
+            let directory = tempfile_dir();
+            let mut helper = fake_helper(&directory, 0.3, ANSWER);
+            let cancelled = AtomicBool::new(false);
+            let soon = Instant::now() + Duration::from_millis(20);
+            assert_eq!(
+                helper.clean("hi", &[], soon, &cancelled),
+                Err(Fallback::Unavailable("still loading".into()))
+            );
+            assert_eq!(helper.missed, 0);
+            let later = Instant::now() + Duration::from_secs(5);
+            assert_eq!(helper.clean("hi", &[], later, &cancelled).unwrap(), "clean");
+            let _ = std::fs::remove_dir_all(directory);
+        }
+
+        #[test]
+        fn a_late_answer_counts_a_miss_and_is_not_mistaken_for_the_next() {
+            let directory = tempfile_dir();
+            let slow = format!("sleep 0.3; {ANSWER}");
+            let mut helper = fake_helper(&directory, 0.0, &slow);
+            let cancelled = AtomicBool::new(false);
+            let later = || Instant::now() + Duration::from_secs(5);
+            helper.wait_ready(later(), &cancelled).unwrap();
+            let soon = Instant::now() + Duration::from_millis(20);
+            assert_eq!(
+                helper.clean("first", &[], soon, &cancelled),
+                Err(Fallback::Late)
+            );
+            assert_eq!(helper.missed, 1);
+            // The first request's stale answer arrives first and must be skipped.
+            assert_eq!(
+                helper.clean("next", &[], later(), &cancelled).unwrap(),
+                "clean"
+            );
+            assert_eq!(helper.next_id, 2);
+            assert_eq!(helper.missed, 0);
+            let _ = std::fs::remove_dir_all(directory);
+        }
+
+        #[test]
+        fn a_helper_that_dies_is_reported_as_failed() {
+            let directory = tempfile_dir();
+            let mut helper = fake_helper(&directory, 0.0, "exit 1");
+            let cancelled = AtomicBool::new(false);
+            let later = Instant::now() + Duration::from_secs(5);
+            assert!(matches!(
+                helper.clean("hi", &[], later, &cancelled),
+                Err(Fallback::Failed(_))
+            ));
+            let _ = std::fs::remove_dir_all(directory);
+        }
+
+        fn tempfile_dir() -> PathBuf {
+            static NEXT: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+            let directory = std::env::temp_dir().join(format!(
+                "tiro-helper-{}-{}",
+                std::process::id(),
+                NEXT.fetch_add(1, Ordering::Relaxed)
+            ));
+            std::fs::create_dir_all(&directory).unwrap();
+            directory
+        }
     }
 }

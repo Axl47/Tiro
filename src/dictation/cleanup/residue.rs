@@ -8,8 +8,12 @@ use std::sync::LazyLock;
 use regex::{Captures, Regex};
 
 /// "..., but yeah, the idea" reads as two sentences once the marker is gone.
+/// Never right after a sentence's end, which is [`SENTENCE_START`]'s.
 static MID_SENTENCE: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"(?i)[,;]\s*(?:and|but|so)\s+yeah,?\s+(\S)").expect("mid-sentence marker pattern")
+    Regex::new(
+        r"(?i)([^.!?\s])(?:[,;]\s*|\s+)(?:and|but|so)(?:\.\.\.|…)?,?\s+yeah(?:\.\.\.|…|,)?\s+(\S)",
+    )
+    .expect("mid-sentence marker pattern")
 });
 /// "Yeah, run the tests." / "But yeah, ..." at the start of a sentence.
 static SENTENCE_START: LazyLock<Regex> = LazyLock::new(|| {
@@ -29,7 +33,7 @@ fn upper(text: &str) -> String {
 pub fn strip(text: &str) -> String {
     let text = crate::dictation::filler_words::apply(text);
     let text = MID_SENTENCE.replace_all(&text, |captures: &Captures| {
-        format!(". {}", upper(&captures[1]))
+        format!("{}. {}", &captures[1], upper(&captures[2]))
     });
     let text = SENTENCE_START.replace_all(&text, |captures: &Captures| {
         format!("{}{}", &captures[1], upper(&captures[2]))
@@ -58,6 +62,22 @@ mod tests {
         assert_eq!(
             strip("make it feel fast, but yeah, the idea would be that."),
             "make it feel fast. The idea would be that."
+        );
+    }
+
+    #[test]
+    fn a_marker_opening_a_sentence_keeps_one_period() {
+        assert_eq!(
+            strip("make it feel fast. But yeah, the idea would be that."),
+            "make it feel fast. The idea would be that."
+        );
+    }
+
+    #[test]
+    fn handles_a_marker_the_model_punctuated_oddly() {
+        assert_eq!(
+            strip("when the debounce fires and... yeah, just make it use the store."),
+            "when the debounce fires. Just make it use the store."
         );
     }
 

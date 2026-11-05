@@ -47,6 +47,7 @@ enum Contract {
     /// Inputs past this were never trained on; longer text is split.
     static let chunkTokenBudget = 400
     static let maxVocabTerms = 12
+    static let warmUpText = "um run the tests"
 
     static func outputCap(forInputTokens tokens: Int) -> Int {
         Int((Double(tokens) * 1.4).rounded(.up)) + 48
@@ -175,6 +176,16 @@ enum Scribe {
     static func main() async {
         _ = protocolOutput
 
+        // Someone is waiting on every answer, and scheduling matters a lot here:
+        // clamped to the utility class, inference ran 2-3x slower. A child also
+        // inherits the class of whichever thread spawned it, so say so explicitly.
+        pthread_set_qos_class_self_np(QOS_CLASS_USER_INTERACTIVE, 0)
+        let activity = ProcessInfo.processInfo.beginActivity(
+            options: [.userInitiated, .latencyCritical],
+            reason: "Cleaning up dictations"
+        )
+        defer { ProcessInfo.processInfo.endActivity(activity) }
+
         guard let index = CommandLine.arguments.firstIndex(of: "--model"),
             index + 1 < CommandLine.arguments.count
         else {
@@ -196,9 +207,12 @@ enum Scribe {
             log("load failed: \(error)")
             exit(1)
         }
-        // The first inference compiles Metal pipelines (seconds on a cold cache,
-        // about 150 ms on a warm one). Pay for it here, not in someone's dictation.
-        _ = try? await clean(Request(id: 0, text: "um run the tests"), with: container)
+        // The first inference compiles Metal pipelines (seconds on a cold cache),
+        // and the second still costs several times a settled one, whatever its
+        // length. Pay for both here, not in someone's dictation.
+        for _ in 0..<2 {
+            _ = try? await clean(Request(id: 0, text: Contract.warmUpText), with: container)
+        }
         emit(Ready(loadMs: milliseconds(since: started), footprintBytes: footprintBytes()))
 
         let decoder = JSONDecoder()

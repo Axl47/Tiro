@@ -96,7 +96,7 @@ cp "$scribe_products/tiro-scribe" "$bundle/Contents/Helpers/tiro-scribe"
 cp "$scribe_products/mlx-swift_Cmlx.bundle/Contents/Resources/default.metallib" "$bundle/Contents/Helpers/mlx.metallib"
 cp "$root/app/Info.plist" "$bundle/Contents/Info.plist"
 cp "$root/LICENSE" "$root/THIRD_PARTY_NOTICES.md" "$bundle/Contents/Resources/"
-HEX_VERSION="$version" HEX_BUILD_NUMBER="$build_number" HEX_TEAM_ID="$team_id" HEX_CODESIGN_IDENTITY="${identity#-}" HEX_SKIP_INSTALL_SCRIPT=1 \
+HEX_VERSION="$version" HEX_BUILD_NUMBER="$build_number" HEX_TEAM_ID="$team_id" HEX_CODESIGN_IDENTITY="$([ -n "$team_id" ] && printf %s "${identity#-}")" HEX_SKIP_INSTALL_SCRIPT=1 \
   "$root/scripts/build-hex-microphone-driver.sh" "$bundle/Contents/Library" >&2
 /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $version" "$bundle/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $build_number" "$bundle/Contents/Info.plist"
@@ -131,6 +131,8 @@ sign "$bundle/Contents/Library/HexMicrophone.driver"
 # entitlement; anything it touches is attributed to Hex, its responsible
 # process.
 sign --identifier "$bundle_id.scrawl-helper" "$bundle/Contents/MacOS/scrawl-helper"
+# codesign treats everything in Helpers as code, the shader library included.
+sign --identifier "$bundle_id.scribe.metallib" "$bundle/Contents/Helpers/mlx.metallib"
 sign --identifier "$bundle_id.scribe" "$bundle/Contents/Helpers/tiro-scribe"
 sign --entitlements "$root/.github/release/hex.entitlements" "$bundle"
 codesign --verify --deep --strict --verbose=2 "$bundle"

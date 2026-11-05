@@ -395,6 +395,7 @@ pub fn listen(
     }
     emit_state(&mut events, hotkeys.any_recording(), &input.device_name())?;
     tracing::info!(device = %input.device_name(), "dictation listener started");
+    crate::dictation::cleanup::prepare();
 
     while !shutdown.load(Ordering::Relaxed) {
         #[cfg(hex_capture)]

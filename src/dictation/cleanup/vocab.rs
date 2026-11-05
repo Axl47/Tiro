@@ -13,16 +13,91 @@ const MAX_WINDOW: usize = 4;
 /// What people dictating prompts for coding agents say and recognizers mangle.
 /// The person's own vocabulary always ranks ahead of these.
 const DEVELOPER_TERMS: &[&str] = &[
-    "API", "ArkType", "Astro", "AWS", "Axios", "backend", "Biome", "Bun", "Claude", "Clerk",
-    "CLI", "Codex", "Convex", "CSS", "debounce", "Deno", "Docker", "Dokploy", "ESLint", "Expo",
-    "FastAPI", "frontend", "Gemini", "GitHub", "GraphQL", "Hono", "HTML", "HTTP", "JavaScript",
-    "JSON", "JSX", "Kotlin", "Kubernetes", "LAN", "localhost", "macOS", "Metal", "middleware",
-    "MLX", "Neovim", "Next.js", "Nginx", "Node.js", "npm", "OAuth", "OpenAI", "Parakeet",
-    "pnpm", "PostgreSQL", "Prisma", "PR", "Python", "React", "README", "Redis", "refactor",
-    "repo", "Rust", "SDK", "SQLite", "SSH", "Supabase", "Svelte", "Swift", "Tailwind",
-    "TanStack", "TanStack Start", "Tauri", "TSX", "TypeScript", "useEffect", "useMemo",
-    "useRef", "useState", "Vercel", "Vite", "Vitest", "Vulkan", "webhook", "WebSocket",
-    "Whisper", "YAML", "Zod", "Zustand",
+    "API",
+    "ArkType",
+    "Astro",
+    "AWS",
+    "Axios",
+    "backend",
+    "Biome",
+    "Bun",
+    "ChatGPT",
+    "Claude",
+    "Clerk",
+    "CLI",
+    "Codex",
+    "Convex",
+    "CSS",
+    "debounce",
+    "Deno",
+    "Docker",
+    "Dokploy",
+    "ESLint",
+    "Expo",
+    "FastAPI",
+    "frontend",
+    "Gemini",
+    "GitHub",
+    "GraphQL",
+    "Hono",
+    "HTML",
+    "HTTP",
+    "JavaScript",
+    "JSON",
+    "JSX",
+    "Kotlin",
+    "Kubernetes",
+    "LAN",
+    "localhost",
+    "macOS",
+    "Metal",
+    "middleware",
+    "MLX",
+    "Neovim",
+    "Next.js",
+    "Nginx",
+    "Node.js",
+    "npm",
+    "OAuth",
+    "OpenAI",
+    "Parakeet",
+    "pnpm",
+    "PostgreSQL",
+    "Prisma",
+    "PR",
+    "Python",
+    "React",
+    "README",
+    "Redis",
+    "refactor",
+    "repo",
+    "Rust",
+    "SDK",
+    "SQLite",
+    "SSH",
+    "Supabase",
+    "Svelte",
+    "Swift",
+    "Tailwind",
+    "TanStack",
+    "TanStack Start",
+    "Tauri",
+    "TSX",
+    "TypeScript",
+    "useEffect",
+    "useMemo",
+    "useRef",
+    "useState",
+    "Vercel",
+    "Vite",
+    "Vitest",
+    "Vulkan",
+    "webhook",
+    "WebSocket",
+    "Whisper",
+    "YAML",
+    "Zod",
+    "Zustand",
 ];
 
 /// Letters and digits of `text`, lowercased: what a term sounds nearest to.
@@ -53,6 +128,10 @@ fn closeness(term: &str, sounds_like: &[String], spoken: &[String]) -> Option<us
             // Same first letter: recognizers rarely miss the onset, and it
             // keeps "code" away from "Node.js".
             if window.chars().next() != wanted.chars().next() {
+                continue;
+            }
+            // A cut-off word isn't a mishearing: "open" must not become "OpenAI".
+            if wanted.starts_with(window.as_str()) {
                 continue;
             }
             let share = distance(&window, &wanted) * 100 / wanted.chars().count();
@@ -134,6 +213,12 @@ mod tests {
     #[test]
     fn stays_quiet_about_terms_nobody_said() {
         assert!(select("please run the tests and tell me", &[]).is_empty());
+    }
+
+    #[test]
+    fn a_cut_off_word_is_not_a_mishearing() {
+        let terms = select("use it like open super whisper", &[]);
+        assert!(!terms.iter().any(|term| term == "OpenAI"), "{terms:?}");
     }
 
     #[test]
