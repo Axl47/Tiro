@@ -22,9 +22,9 @@ pub fn is_macos_test_build() -> bool {
 #[cfg(target_os = "macos")]
 pub fn app_name() -> &'static str {
     if is_macos_test_build() {
-        "Hex Test"
+        "Tiro Test"
     } else {
-        "Hex"
+        "Tiro"
     }
 }
 
@@ -34,10 +34,11 @@ pub fn support_dir() -> Result<PathBuf> {
     }
     let data =
         dirs::data_dir().ok_or_else(|| eyre!("application data directory is unavailable"))?;
+    // Tiro's own folder: it never shares settings or models with an installed Hex.
     let folder = if is_macos_test_build() {
-        "hex-test"
+        "tiro-test"
     } else {
-        "hex"
+        "tiro"
     };
     Ok(data.join(folder))
 }

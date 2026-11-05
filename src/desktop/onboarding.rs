@@ -640,9 +640,9 @@ pub fn classify_tccutil_reset(code: Option<i32>, stderr: &str) -> TccResetOutcom
 /// unavailable (such as a loose binary).
 pub fn default_mac_bundle_id(test_build: Option<&str>) -> &'static str {
     if test_build == Some("1") {
-        "anomaly.hex.test"
+        "dev.axl47.tiro.test"
     } else {
-        "anomaly.hex"
+        "dev.axl47.tiro"
     }
 }
 
@@ -2032,9 +2032,9 @@ mod tests {
                 "com.kitlangton.Hex.debug"
             ]
         );
-        assert_eq!(default_mac_bundle_id(None), "anomaly.hex");
-        assert_eq!(default_mac_bundle_id(Some("0")), "anomaly.hex");
-        assert_eq!(default_mac_bundle_id(Some("1")), "anomaly.hex.test");
+        assert_eq!(default_mac_bundle_id(None), "dev.axl47.tiro");
+        assert_eq!(default_mac_bundle_id(Some("0")), "dev.axl47.tiro");
+        assert_eq!(default_mac_bundle_id(Some("1")), "dev.axl47.tiro.test");
 
         assert_eq!(
             own_tcc_services(PermissionKind::Accessibility),

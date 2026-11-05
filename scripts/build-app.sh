@@ -20,13 +20,23 @@ if [ "${HEX_RELEASE_UNSIGNED:-}" = 1 ]; then
 elif [ "${HEX_TEST_BUILD:-}" = 1 ]; then
   team_id=
   identity=-
-  app_name="Hex Test"
-  bundle_id=anomaly.hex.test
-else
-  team_id=${HEX_TEAM_ID:?Set HEX_TEAM_ID to the Apple Developer signing team}
+  app_name="Tiro Test"
+  bundle_id=dev.axl47.tiro.test
+elif [ -n "${HEX_TEAM_ID:-}" ]; then
+  team_id=$HEX_TEAM_ID
   identity=$(hex_codesign_identity "$team_id")
-  app_name=Hex
-  bundle_id=anomaly.hex
+  app_name=Tiro
+  bundle_id=dev.axl47.tiro
+else
+  # Tiro's everyday build, on its owner's machine. Sign with a stable identity
+  # (TIRO_CODESIGN_IDENTITY) so macOS keeps the app's permissions across
+  # rebuilds; ad-hoc signing works, but asks for them again on every build.
+  team_id=
+  identity=${TIRO_CODESIGN_IDENTITY:--}
+  app_name=Tiro
+  bundle_id=dev.axl47.tiro
+  : "${HEX_LOCAL_BUILD:=1}"
+  export HEX_LOCAL_BUILD
 fi
 # Every build carries the `capture` experiment (dormant until enabled), with
 # Scrawl's `scrawl-helper` beside `hex`, where the engine looks for it.
@@ -45,6 +55,8 @@ executable="$bundle/Contents/MacOS/$executable_name"
 sign() {
   if [ "$identity" = - ]; then
     codesign --force --sign - "$@"
+  elif [ -z "$team_id" ]; then
+    codesign --force --sign "$identity" "$@"
   else
     codesign --force --timestamp --options runtime --sign "$identity" "$@"
   fi
@@ -73,6 +85,15 @@ rm -rf "$bundle"
 mkdir -p "$bundle/Contents/MacOS" "$bundle/Contents/Resources" "$bundle/Contents/Library"
 cp "$root/target/release/hex" "$executable"
 cp "$root/target/release/scrawl-helper" "$bundle/Contents/MacOS/scrawl-helper"
+# The cleanup helper finds mlx.metallib beside itself. xcodebuild, not `swift
+# build`: only Xcode's build compiles MLX's Metal shaders.
+scribe_products="$root/native/scribe/.build/xcode/Build/Products/Release"
+(cd "$root/native/scribe" && xcodebuild -scheme tiro-scribe -destination 'platform=macOS,arch=arm64' \
+  -configuration Release -derivedDataPath .build/xcode -skipPackagePluginValidation \
+  -skipMacroValidation ONLY_ACTIVE_ARCH=YES build >&2)
+mkdir -p "$bundle/Contents/Helpers"
+cp "$scribe_products/tiro-scribe" "$bundle/Contents/Helpers/tiro-scribe"
+cp "$scribe_products/mlx-swift_Cmlx.bundle/Contents/Resources/default.metallib" "$bundle/Contents/Helpers/mlx.metallib"
 cp "$root/app/Info.plist" "$bundle/Contents/Info.plist"
 cp "$root/LICENSE" "$root/THIRD_PARTY_NOTICES.md" "$bundle/Contents/Resources/"
 HEX_VERSION="$version" HEX_BUILD_NUMBER="$build_number" HEX_TEAM_ID="$team_id" HEX_CODESIGN_IDENTITY="${identity#-}" HEX_SKIP_INSTALL_SCRIPT=1 \
@@ -90,7 +111,7 @@ url_scheme=hex
 /usr/libexec/PlistBuddy -c "Set :CFBundleURLTypes:0:CFBundleURLName $bundle_id" "$bundle/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c "Set :CFBundleURLTypes:0:CFBundleURLSchemes:0 $url_scheme" "$bundle/Contents/Info.plist"
 # The helper mirrors a cabled iPhone as a camera; macOS asks on Hex's behalf.
-plutil -replace NSCameraUsageDescription -string "Hex mirrors and records a cabled iPhone's screen for a capture." "$bundle/Contents/Info.plist"
+plutil -replace NSCameraUsageDescription -string "Tiro mirrors and records a cabled iPhone's screen for a capture." "$bundle/Contents/Info.plist"
 rm -rf "$icon_output"
 mkdir -p "$icon_output"
 xcrun actool "$root/app/AppIcon.icon" \
@@ -110,6 +131,7 @@ sign "$bundle/Contents/Library/HexMicrophone.driver"
 # entitlement; anything it touches is attributed to Hex, its responsible
 # process.
 sign --identifier "$bundle_id.scrawl-helper" "$bundle/Contents/MacOS/scrawl-helper"
+sign --identifier "$bundle_id.scribe" "$bundle/Contents/Helpers/tiro-scribe"
 sign --entitlements "$root/.github/release/hex.entitlements" "$bundle"
 codesign --verify --deep --strict --verbose=2 "$bundle"
 echo "$bundle"
