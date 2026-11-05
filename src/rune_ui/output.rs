@@ -736,7 +736,7 @@ fn agent_prompt(fix: Option<(&str, &str)>) -> String {
          If the rewrite fails or runs past the deadline, Hex pastes the text without it.\n\
          \n\
          Built-in transformations: \"lowercase\", \"no-trailing-punctuation\", \
-         \"spongebob-case\". Others are functions in ~/.config/hex/hex.config.ts \
+         \"spongebob-case\". Others are functions in ~/.config/tiro/hex.config.ts \
          (run `hex commands init` for its typings; the API, including fetch and \
          node:child_process, is documented at {TRANSFORMS_DOCS}).\n\
          \n\

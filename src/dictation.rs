@@ -945,6 +945,8 @@ impl DictationCapture {
     }
 
     fn start_with_pre_roll(&mut self, now: CaptureInstant, duration: Duration, intentional: bool) {
+        // Loads the cleanup model while the person speaks, if it went idle.
+        crate::dictation::cleanup::prepare();
         let pre_roll = samples_for(duration, self.sample_rate).min(self.ring.len());
         let mut recording = Recording::new(now, self.sample_rate);
         recording.intentional = intentional;
@@ -1158,8 +1160,6 @@ impl DictationCapture {
         let Some(recording) = &mut self.recording else {
             return;
         };
-        // Loads the cleanup model while the person speaks, if it went idle.
-        crate::dictation::cleanup::prepare();
         if recording.stream.is_none() {
             recording.stream = engine.begin();
             recording.feed_stream();

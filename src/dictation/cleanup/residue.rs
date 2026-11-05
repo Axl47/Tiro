@@ -87,6 +87,19 @@ mod tests {
     }
 
     #[test]
+    fn leaves_filler_shaped_parts_of_code_alone() {
+        for text in [
+            "Open src/er/parser.rs.",
+            "Open er/parser.rs.",
+            "Call ah_handler.",
+            "Check um_count and er.rs.",
+        ] {
+            assert_eq!(strip(text), text);
+        }
+        assert_eq!(strip("Check it, um."), "Check it.");
+    }
+
+    #[test]
     fn leaves_real_uses_alone() {
         for text in [
             "Yeah.",

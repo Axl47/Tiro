@@ -6,10 +6,10 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use color_eyre::eyre::{Result, eyre};
 use tracing_subscriber::fmt::writer::MakeWriterExt;
 
-/// Whether this is a local build (`HEX_LOCAL_BUILD=1`): made from a checkout
-/// for its owner's own machine, so it never checks for or offers updates.
+/// Tiro has no update channel, and Hex's must never replace it: every build
+/// counts as a local build, however it was made, and never checks for updates.
 pub fn is_local_build() -> bool {
-    option_env!("HEX_LOCAL_BUILD") == Some("1")
+    true
 }
 
 /// Whether this is a macOS `Hex Test.app` build (`HEX_TEST_BUILD=1`), which
@@ -105,7 +105,7 @@ pub fn personal_commands_workspace() -> Result<PathBuf> {
     user_config_dir()
 }
 
-/// The per-user config folder holding `hex.config.ts` on every OS: `~/.config/hex`, or `~/.config/hex-test` for `Hex Test.app`.
+/// The per-user config folder holding `hex.config.ts` on every OS: `~/.config/tiro`, or `~/.config/tiro-test` for a test build.
 fn user_config_dir() -> Result<PathBuf> {
     let home = home_dir().ok_or_else(|| eyre!("home directory is unavailable"))?;
     Ok(user_config_dir_in(&home, is_macos_test_build()))
@@ -159,7 +159,7 @@ pub fn document_dir() -> Option<PathBuf> {
 
 fn user_config_dir_in(home: &std::path::Path, test_build: bool) -> PathBuf {
     home.join(".config")
-        .join(if test_build { "hex-test" } else { "hex" })
+        .join(if test_build { "tiro-test" } else { "tiro" })
 }
 
 #[cfg(test)]
@@ -171,11 +171,11 @@ mod tests {
         let home = std::path::Path::new("/Users/kit");
         assert_eq!(
             user_config_dir_in(home, false),
-            home.join(".config").join("hex")
+            home.join(".config").join("tiro")
         );
         assert_eq!(
             user_config_dir_in(home, true),
-            home.join(".config").join("hex-test")
+            home.join(".config").join("tiro-test")
         );
     }
 }

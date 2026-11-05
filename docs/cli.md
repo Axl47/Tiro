@@ -53,8 +53,8 @@ hex
 │   ├── remove <id>                Labs: Hex's copy of an import (not the selected model)
 │   └── status|devices|check|transcribe <wav>  Linux and Windows, run in this process
 ├── commands
-│   ├── init                       create ~/.config/hex (local, no running Hex needed)
-│   └── check                      validate ~/.config/hex/hex.config.ts transformations
+│   ├── init                       create ~/.config/tiro (local, no running Hex needed)
+│   └── check                      validate ~/.config/tiro/hex.config.ts transformations
 ├── window
 │   ├── show [settings|models|modes|history|meetings]
 │   ├── hide                       close the window; Hex stays in the menu bar

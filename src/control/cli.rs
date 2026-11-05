@@ -148,7 +148,7 @@ pub enum ControlCli {
         #[arg(long)]
         meetings_dir: Option<std::path::PathBuf>,
     },
-    /// Manage the ~/.config/hex personal transformations workspace.
+    /// Manage the ~/.config/tiro personal transformations workspace.
     Commands {
         #[command(subcommand)]
         command: CommandsCommand,
@@ -189,9 +189,9 @@ pub enum ControlCli {
 
 #[derive(Subcommand, Debug)]
 pub enum CommandsCommand {
-    /// Create ~/.config/hex with a starter config, or refresh its typings.
+    /// Create ~/.config/tiro with a starter config, or refresh its typings.
     Init,
-    /// Load ~/.config/hex's config as Hex would and report what it registers
+    /// Load ~/.config/tiro's config as Hex would and report what it registers
     /// or why it fails.
     Check,
 }

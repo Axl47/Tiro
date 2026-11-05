@@ -85,7 +85,7 @@ mod macos {
     use std::io::{BufRead as _, BufReader, Read as _, Write as _};
     use std::process::{Child, ChildStdin, Command, Stdio};
     use std::sync::mpsc::{self, Receiver, RecvTimeoutError};
-    use std::sync::{Mutex, MutexGuard};
+    use std::sync::{Mutex, MutexGuard, TryLockError};
     use std::time::Instant;
 
     use color_eyre::eyre::{Result, bail, eyre};
@@ -362,8 +362,15 @@ mod macos {
     /// Gets the model warm without holding up the caller. Call it as early as
     /// is useful (launch, shortcut press); it is cheap once the helper is up.
     pub fn prepare() {
-        if !crate::labs::scribe_cleanup() || helper_slot().is_some() {
+        if !crate::labs::scribe_cleanup() {
             return;
+        }
+        // Runs on the capture path, and a request holds the lock throughout
+        // inference: locked means a helper exists, so never wait for it.
+        match HELPER.try_lock() {
+            Err(TryLockError::WouldBlock) => return,
+            Ok(slot) if slot.is_some() => return,
+            _ => {}
         }
         if PREPARING.swap(true, Ordering::AcqRel) {
             return;

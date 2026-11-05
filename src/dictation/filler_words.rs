@@ -69,8 +69,9 @@ pub fn apply(transcript: &str) -> String {
     out
 }
 
+/// Joined by `/` or `_`, a filler-shaped word is part of a path or a name.
 fn joins_word(c: char) -> bool {
-    c.is_alphanumeric() || matches!(c, '-' | '\'' | '’')
+    c.is_alphanumeric() || matches!(c, '-' | '\'' | '’' | '/' | '_')
 }
 
 /// Where the filler starting at `start` ends, if one does.
@@ -90,7 +91,12 @@ fn filler_at(chars: &[char], start: usize) -> Option<usize> {
                     c == expected || (number == 0 && c == expected.to_ascii_uppercase())
                 });
         let ends = chars.get(end).is_none_or(|&next| !joins_word(next));
-        (matches && ends).then_some(end)
+        // "er.rs" is a file; "um." ends a sentence.
+        let file_name = chars.get(end) == Some(&'.')
+            && chars
+                .get(end + 1)
+                .is_some_and(|next| next.is_alphanumeric());
+        (matches && ends && !file_name).then_some(end)
     })
 }
 

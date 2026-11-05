@@ -294,7 +294,7 @@ pub fn initialize_workspace() -> Result<PathBuf> {
     Ok(workspace)
 }
 
-/// Loads `~/.config/hex`'s config as Hex does and summarizes its transformations.
+/// Loads `~/.config/tiro`'s config as Hex does and summarizes its transformations.
 #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 pub fn check_workspace() -> Result<String> {
     let workspace = crate::app_paths::personal_commands_workspace()?;
