@@ -12,6 +12,7 @@ changes with `benchmarks/cleanup/` before and after.
 
 - Building `native/scribe` needs Xcode's Metal Toolchain: `xcodebuild -downloadComponent MetalToolchain`.
 - `tiro-scribe` must be built with `xcodebuild`; `swift build` doesn't compile MLX's Metal shaders.
+- `/transcriptions` refuses a model without its `.verified.json` receipt (`409 model-not-ready`), even one dictation uses; a hand-copied model needs `POST /models/<id>/prepare` once.
 
 # Hex Agent Guide
 
@@ -131,6 +132,9 @@ substitute for source inspection or a second roadmap.
   paths, a vocabulary pre-match, the `tiro-scribe` process (`native/scribe`), a
   faithfulness check, and deterministic residue removal, which is also its fallback.
   `POST /cleanup` exposes it.
+- `lan`: Tiro's opt-in LAN front for `android/` (Labs › LAN dictation): TLS with a
+  pinned self-signed certificate, per-device tokens from `hex lan pair`, and an
+  allowlist of three routes forwarded to the loopback local API.
 - `dictation/processor`: the one OpenCode client and ordered processing policy
   for macOS, Windows, and Linux: context-selected corrections, deadline-bounded
   OpenCode rewrite profiles with corrected-transcript fallback, the ranked

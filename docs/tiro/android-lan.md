@@ -1,45 +1,67 @@
-# Android over LAN: the plan, not built yet
+# Android over LAN
 
-Android records; the Mac does everything else. The phone runs no model.
-
-## What already exists
-
-| Need | Route | State |
-| --- | --- | --- |
-| Whole clip to text | `POST /transcriptions` | Exists |
-| Live partials while speaking | `POST /streams` and friends (`docs/streams.md`) | Exists |
-| Text to clean text | `POST /cleanup` | Added by Tiro |
-| Auth | Bearer token | Exists, but delivered by a local file |
-
-So the phone's request flow needs no new engine work:
+The phone records; the Mac does everything else. The phone runs no model.
 
 ```text
-Android mic ─▶ /streams (16 kHz PCM) ─▶ partials on screen
-            ─▶ finish ─▶ transcript ─▶ /cleanup ─▶ clean text ─▶ phone's text field
+Tiro keyboard (android/) ─TLS─▶ :47811 on the Mac (src/lan.rs)
+  hold the mic, speak        ├─ allowlist: GET /health, POST /transcriptions, POST /cleanup
+  let go                     ├─ paired device token (only its SHA-256 is stored)
+                             └─▶ 127.0.0.1 local API: Parakeet, then the cleanup stage
+  ◀──────────── clean text, typed into the focused field ───────────────┘
 ```
 
-## What is missing
+## Setting it up
 
-1. **A LAN listener.** `local_api` binds `127.0.0.1` on purpose. Add a second, opt-in
-   listener rather than widening this one: the loopback API also carries `/control`,
-   which can change settings and must never reach the network. Expose an allowlist
-   of `/streams`, `/transcriptions`, and `/cleanup`.
-2. **Pairing and transport.** The discovery file can't reach a phone, and bearer tokens
-   must not cross Wi-Fi in clear text. QR pairing can carry a per-device token and the
-   Mac's certificate fingerprint for pinned TLS.
-3. **Discovery.** mDNS, falling back to the address in the QR code.
-4. **Concurrency.** `/streams` serves one stream at a time and yields to local
-   dictation. That is fine for one person, and worth saying out loud in the phone's UI.
-5. **The Android app.** Most likely an input method (IME), so it works in any text field.
+On the Mac:
 
-## Will it feel fast?
+```sh
+hex labs on lan-dictation
+hex lan pair --name Pixel        # prints a QR code and a tiro://pair link
+```
 
-Probably, and it can be measured before writing an Android app. On home Wi-Fi the
-network should add tens of milliseconds at most, small next to cleanup's hundreds, and
-16 kHz PCM is only 32 KB/s. Those are estimates, not measurements. The real risks are
-Wi-Fi power saving on the phone, and the Mac sleeping, since `IDLE_LIMIT` also means a
-first request can wait for a model reload. A small script streaming a WAV across the LAN
-would answer this for an afternoon's work, and is the right first step.
+On the phone: install `android/` (`./gradlew :app:installDebug`), scan the QR code
+with the camera, confirm the pairing in Tiro, allow the microphone, and turn on the
+"Tiro voice" keyboard. In any text field, switch to it and hold the mic.
 
-Off-LAN use (a tunnel such as Tailscale) should work with the same API, since it only
-sees a reachable address.
+`hex lan devices` lists paired phones; `hex lan revoke Pixel` unpairs one. Turning the
+Labs switch off closes the port within a second.
+
+For the Android emulator, pair with `--host 10.0.2.2`, the emulator's address for the
+Mac.
+
+## Design
+
+- **The loopback API is never exposed.** `/control` can change settings, so the LAN
+  listener is a separate TLS front that forwards three routes, one request per
+  connection, after replacing the phone's token with the loopback one.
+- **TLS with a pinned, self-signed certificate.** Made once by the system `openssl`
+  in `<support>/lan/`. The QR code carries its SHA-256; the phone trusts exactly that
+  certificate, so nothing else on the network can stand in for the Mac.
+- **Pairing asks first.** Any Android app can open a `tiro://` link, so the phone
+  confirms before it saves one. Otherwise a silent re-pair could send your speech to
+  someone else's computer.
+- **The Mac picks the model.** `/transcriptions` always uses the model dictation holds,
+  so a phone never makes the Mac load a second one.
+- **Whole clips, not streams.** The phone sends the recording when you let go, then the
+  transcript to `/cleanup`. `/streams` could start transcribing while you speak, but it
+  needs many small requests; measure first.
+
+## What has been verified
+
+- Over real TLS from the Mac: pinned fingerprint matches what the listener serves;
+  unpaired tokens and non-allowlisted routes (`/control`) are refused; audio and
+  cleanup round-trip; early errors from the API reach the client intact.
+- The Android app builds (debug and a 64 KB release), passes its unit tests (pairing
+  links, WAV headers, fingerprints, spacing), and passes lint with no errors.
+- **Not yet run on a device or emulator.** The emulator was in use by another session.
+  Debug builds can play `files/fixture.wav` instead of the microphone, so the full path
+  can be tested there without recording anyone:
+  `adb shell run-as dev.axl47.tiro cp /data/local/tmp/clip.wav files/fixture.wav`.
+- Not measured: latency over real Wi-Fi, and the macOS firewall prompt, which appears
+  when an app first listens on the network if the firewall is on.
+
+## Next
+
+- Stream audio while speaking (`/streams`) if stop-to-text over Wi-Fi feels slow.
+- mDNS discovery, so a changed Mac address doesn't need a new pairing.
+- Pairing from Tiro's window, not only the CLI.

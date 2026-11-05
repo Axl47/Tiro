@@ -34,11 +34,18 @@ build is ad-hoc signed and asks again each time. The first launch downloads Para
 Hold the shortcut, speak, let go. Turn cleanup off with `hex labs off scribe-cleanup`.
 The command-line tool is still called `hex`, on purpose: see the architecture notes.
 
+## Android
+
+`android/` is Tiro for Android: a keyboard that records on the phone and has this Mac
+transcribe and clean up, over the local network with a pinned TLS certificate. Turn
+it on with `hex labs on lan-dictation`, then `hex lan pair` and scan the QR code. See
+[Android over LAN](docs/tiro/android-lan.md).
+
 ## More
 
 - [Architecture evaluation and decisions](docs/tiro/architecture.md)
 - [Raw vs cleaned benchmark](benchmarks/cleanup/README.md)
-- [Android over LAN plan](docs/tiro/android-lan.md)
+- [Android over LAN](docs/tiro/android-lan.md)
 - [Hex's own docs](docs/README.md), which still apply to everything underneath
 
 ## License
