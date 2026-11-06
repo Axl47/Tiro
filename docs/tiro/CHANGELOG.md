@@ -11,6 +11,9 @@
 - Android streams a dictation to the Mac while you speak (`/dictate/stream`) and shows
   the live text in the volume-key pill; the whole clip goes to `/dictate` when
   streaming can't run.
+- Pair and unpair phones from Labs › LAN dictation's drawer, which shows the QR code.
+- The Mac advertises LAN dictation over Bonjour, and Android finds it again by its
+  pinned certificate when its address changes, so a new address needs no new pairing.
 
 ### Changed
 

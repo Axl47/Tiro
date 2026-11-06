@@ -15,7 +15,8 @@ volume key or Tiro keyboard ─TLS─▶ :47811 on the Mac (src/lan.rs)
 
 ## Setting it up
 
-On the Mac:
+On the Mac, turn on Labs › LAN dictation, open its drawer, and press **Pair a
+phone**: it shows the QR code. Or from a terminal:
 
 ```sh
 hex labs on lan-dictation
@@ -35,7 +36,8 @@ with the camera, confirm the pairing in Tiro, and allow the microphone. Then eit
 Android turns an accessibility service off when its app is force-stopped, so a force
 stop (or `agent-device open --relaunch`) means turning it on again.
 
-`hex lan devices` lists paired phones; `hex lan revoke Pixel` unpairs one. Turning the
+The drawer lists paired phones, each with Unpair; so do `hex lan devices` and
+`hex lan revoke Pixel`. Turning the
 Labs switch off closes the port within a second.
 
 For the Android emulator, pair with `--host 10.0.2.2`, the emulator's address for the
@@ -78,6 +80,13 @@ Mac.
   refuses unknown routes before reading the body, and a refused upload reaches the
   phone as a reset, not as the 404.
 
+- **Found again by Bonjour.** While it listens, the Mac advertises `_tiro._tcp` on the
+  LAN port under the computer's name, with the certificate's fingerprint in the TXT
+  record (`src/lan/bonjour.rs`, through mDNSResponder). When the saved address doesn't
+  answer, the phone browses for that fingerprint, saves the address it finds, and
+  tries once more (`MacFinder`). The advert only says where to look; the pin still
+  decides whether to trust what answers. The first dictation after a move waits for
+  the dead address's connect timeout and a search of up to 4 s.
 - **Volume key over a second keyboard.** Samsung Keyboard's mic key only offers Samsung
   or Google voice input and takes no plug-ins, so dictation that keeps your keyboard
   needs its own trigger. `VolumeKeyDictation` is an accessibility service that takes
@@ -157,7 +166,14 @@ Mac.
   snapshot helper, `uiautomator`) is connected, so drive the volume-key test with
   `adb` and close agent-device first.
 
+- **Bonjour and pairing from the window (2026-11-05):** `dns-sd` found the installed
+  app's advert 1 s after launch, resolving to port 47811 with the fingerprint. In the
+  window, Pair a phone showed a QR code that macOS Vision decoded to the right
+  `tiro://pair` link, `hex lan devices` listed the new phone, and Unpair removed it. On
+  the S24+, pairing to a dead address (192.168.0.250) and pressing Test found the Mac at
+  192.168.0.3, saved it, and connected in 2.5 s. Not tried: a dictation (not just Test)
+  after a move, a real DHCP change, and a network with more than one Mac.
+
 ## Next
 
-- mDNS discovery, so a changed Mac address doesn't need a new pairing.
-- Pairing from Tiro's window, not only the CLI.
+- Phase 3 polish: Material You, a history screen, per-app on/off for the volume key.
