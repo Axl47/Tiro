@@ -156,6 +156,15 @@ Mac.
 - Accessibility services are unbound while a UiAutomation client (agent-device's
   snapshot helper, `uiautomator`) is connected, so drive the volume-key test with
   `adb` and close agent-device first.
+- **Cleaning finished sentences during a streamed dictation (2026-11-05, M1 Pro, no
+  phone):** a Python client speaking the phone's protocol over pinned TLS to
+  `192.168.0.3:47811` streamed the same 11 s clip at real-time pace. Release to final
+  text went from a median 556 ms (542–564 ms, 10 runs, the build before) to 277 ms
+  (250–338 ms, 10 runs), back to back in one sitting. At release, cleanup now waits
+  only on the last 8 words: ~111 ms instead of ~384 ms. The stream's tail (~160 ms)
+  and the live text's cadence were unchanged. Clips that correct themselves across a
+  sentence ("three attempts? No actually five…") typed the same text as cleaning the
+  whole transcript. Not tried on the phone or with a person speaking.
 
 ## Next
 
