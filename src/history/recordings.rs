@@ -20,8 +20,10 @@ use crate::transcription::service::{
     AudioClip, AudioError, TranscriptionService, TranscriptionServiceError,
 };
 
-/// Every recording together stays under this; about 4.5 hours of audio.
-pub const MAX_RECORDING_BYTES: u64 = 512 * 1024 * 1024;
+/// Every recording together stays under this; about 35 minutes of audio.
+/// Tiro: a cache for Transcribe again, since every recording is also sent
+/// to the Storage Box (`history::archive`); Hex keeps 512 MiB.
+pub const MAX_RECORDING_BYTES: u64 = 64 * 1024 * 1024;
 const SAMPLE_RATE: u32 = 16_000;
 const DIRECTORY: &str = "history-audio";
 /// How long one Transcribe again may run, model load included.

@@ -829,7 +829,9 @@ Labs › Keep recordings on                     // labs.keep-recordings
 │   └── Entries from before the toggle was on -> no audio
 ├── Retention, the 10,000-entry and text caps, Delete, Clear all -> the
 │   entry's WAV is deleted at the next save (`recordings::sweep`)
-├── Over 512 MiB of audio -> the oldest entries lose their audio, keep their text
+├── Over 64 MiB of audio (Tiro; Hex keeps 512 MiB) -> the oldest entries lose
+│   their audio, keep their text; Tiro also sends each recording and its entry
+│   to the Storage Box first (`history::archive`)
 ├── History card, entry with audio -> "Saved recording" + "Transcribe again" menu
 │   ├── Lists every available model installed for the language it would use
 │   ├── A model that takes a language hint (not Parakeet v3/Ultra, GigaAM,

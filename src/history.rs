@@ -17,6 +17,7 @@ use std::time::{Duration, SystemTime};
 
 use serde::{Deserialize, Serialize};
 
+mod archive;
 pub mod recordings;
 pub mod stats;
 pub mod versions;
@@ -248,6 +249,9 @@ pub struct HistoryStore {
     /// Labs › Keep recordings' audio, one file per entry.
     recordings: PathBuf,
     recording_cap: u64,
+    /// Tiro: where new recordings are also sent ([`archive`]); only the
+    /// app's default store has one.
+    archive: Option<&'static archive::Archive>,
     entries: Vec<HistoryEntry>,
     next_id: u64,
     retention: HistoryRetention,
@@ -272,6 +276,7 @@ impl HistoryStore {
         let mut store = Self {
             recordings: recordings::directory(&path),
             recording_cap: recordings::MAX_RECORDING_BYTES,
+            archive: None,
             path,
             entries: Vec::new(),
             next_id: 1,
@@ -380,6 +385,11 @@ impl HistoryStore {
             text_ms: None,
             versions: Vec::new(),
         });
+        if let (Some(archive), Some(entry)) = (self.archive, self.entries.last())
+            && entry.has_recording()
+        {
+            archive.add(&recordings::path(&self.recordings, id), entry);
+        }
         self.prune(now_ms);
         self.persist()?;
         Ok(Some(id))
@@ -664,7 +674,9 @@ impl History {
     /// Open the default store in Application Support.
     pub fn open_default(retention: HistoryRetention) -> color_eyre::Result<Self> {
         let path = crate::app_paths::support_dir()?.join("history.json");
-        Ok(Self::new(HistoryStore::open(path, retention, now_ms())))
+        let mut store = HistoryStore::open(path, retention, now_ms());
+        store.archive = archive::start(&store.path);
+        Ok(Self::new(store))
     }
 
     pub fn record(&self, draft: HistoryDraft) -> io::Result<Option<u64>> {

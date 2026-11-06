@@ -14,6 +14,7 @@ changes with `benchmarks/cleanup/` before and after.
 - `tiro-scribe` must be built with `xcodebuild`; `swift build` doesn't compile MLX's Metal shaders.
 - Install the Mac app with `TIRO_CODESIGN_IDENTITY` set to the local code-signing identity (`security find-identity -v -p codesigning`); an ad-hoc signed install loses Microphone and Accessibility, so the listener (and `/streams`) waits for setup.
 - Android accessibility services (`VolumeKeyDictation`) unbind while agent-device or `uiautomator` holds UiAutomation, and turn off on a force stop (`open --relaunch`): close agent-device and press keys through a `uinput` device.
+- Keep recordings' archive (`src/history/archive.rs`) sends over the ssh alias `tiro-box` (key-only, pinned host key); without it, recordings wait in `recordings-outbox/`.
 - `/transcriptions` refuses a model without its `.verified.json` receipt (`409 model-not-ready`), even one dictation uses; a hand-copied model needs `POST /models/<id>/prepare` once.
 
 # Hex Agent Guide
