@@ -104,7 +104,7 @@ class MacClient(private val pairing: Pairing) {
         } catch (error: javax.net.ssl.SSLHandshakeException) {
             throw Failure("That isn't the paired Mac. Pair again.")
         } catch (error: java.io.IOException) {
-            throw Failure("Can't reach your Mac at ${pairing.host}. Is Tiro running on the same network?")
+            throw Failure("Can't reach your Mac at ${pairing.host}. Is Tiro running on the same network?", UNREACHABLE)
         } finally {
             connection.disconnect()
         }
@@ -121,6 +121,9 @@ class MacClient(private val pairing: Pairing) {
     }
 
     companion object {
+        /** [Failure.code] when the Mac didn't answer at all: [MacFinder] looks for it. */
+        const val UNREACHABLE = "unreachable"
+
         private val contexts = mutableMapOf<String, SSLSocketFactory>()
         private val dictateRoutes = mutableMapOf<String, Boolean>()
 

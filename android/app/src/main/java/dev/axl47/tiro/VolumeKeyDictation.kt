@@ -135,7 +135,7 @@ class VolumeKeyDictation : AccessibilityService() {
         pill.working(getString(R.string.status_working))
         val released = SystemClock.elapsedRealtime()
         work.execute {
-            val outcome = runCatching { take.text(MacClient(pairing)) }
+            val outcome = runCatching { MacFinder.withMac(this, pairing) { take.text(MacClient(it)) } }
             val elapsed = SystemClock.elapsedRealtime() - released
             main.post { deliver(outcome, elapsed) }
         }

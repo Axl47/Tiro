@@ -101,9 +101,11 @@ class MainActivity : Activity() {
         show(getString(R.string.testing))
         work.execute {
             val started = SystemClock.elapsedRealtime()
-            val outcome = runCatching { MacClient(pairing).health() }
+            val outcome = runCatching { MacFinder.withMac(this, pairing) { MacClient(it).health() } }
             val elapsed = SystemClock.elapsedRealtime() - started
             main.post {
+                // A Mac found at a new address shows here.
+                refresh()
                 show(
                     outcome.fold(
                         { version -> getString(R.string.connected, version, elapsed) },
