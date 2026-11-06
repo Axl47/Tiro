@@ -32,6 +32,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 
 pub use pairing::{LanCommand, run as run_command};
+pub(crate) use pairing::{device_names, pair, qr_modules, revoke, unused_name};
 
 /// Fixed, so a pairing keeps working across restarts.
 const DEFAULT_PORT: u16 = 47_811;

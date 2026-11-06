@@ -552,7 +552,7 @@ impl Feature {
                 "Clean up each dictation on this Mac with Vedu Scribe: fillers, false starts, and self-corrections go; technical terms stay"
             }
             Self::LanDictation => {
-                "Let phones paired with hex lan pair dictate through this Mac over the local network"
+                "Let paired phones dictate through this Mac over the local network; pair one here"
             }
             Self::SubtitleExport => {
                 "Export meeting transcripts as SRT or VTT subtitles with hex meetings show"

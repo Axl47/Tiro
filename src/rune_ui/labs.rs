@@ -7,6 +7,8 @@
 
 mod category;
 mod drawer;
+#[cfg(target_os = "macos")]
+mod lan;
 #[cfg(all(target_os = "macos", hex_capture))]
 mod screenshots;
 mod store;
@@ -194,6 +196,9 @@ pub(super) struct Store {
     pub(super) tab: Tab,
     pub(super) category: Option<Category>,
     pub(super) drawer: Option<Lab>,
+    /// LAN dictation's paired phones, read when its drawer opens.
+    #[cfg(target_os = "macos")]
+    phones: lan::Phones,
 }
 
 impl Store {
@@ -246,7 +251,7 @@ pub(super) fn reveal(ui: &mut Ui, link: &LabsLink, tx: &mut Tx) {
     }
     let Some(id) = &link.lab else { return };
     match shown(ui).into_iter().find(|row| row.lab.id() == id) {
-        Some(row) => ui.lab_store.drawer = Some(row.lab),
+        Some(row) => open_drawer(ui, row.lab),
         None => tracing::warn!(feature = %id, "a Labs link named no feature this Hex has"),
     }
 }
@@ -260,6 +265,10 @@ fn open(ui: &mut Ui, tx: &mut Tx) {
 
 fn open_drawer(ui: &mut Ui, lab: Lab) {
     ui.lab_store.drawer = Some(lab);
+    #[cfg(target_os = "macos")]
+    if lab == Lab::Feature(Feature::LanDictation) {
+        lan::refresh(ui);
+    }
 }
 
 pub(super) fn close_drawer(ui: &mut Ui) {
@@ -620,7 +629,7 @@ fn rows(ui: &Ui) -> Vec<Row> {
         Feature::LanDictation,
         None,
         "LAN dictation",
-        "Let phones paired with hex lan pair dictate through this Mac over the local network",
+        "Let paired phones dictate through this Mac over the local network; pair one here",
     ));
     rows.push(row(
         Feature::HistoryStats,

@@ -166,53 +166,118 @@ fn qr(text: &str) -> Result<String> {
         .build())
 }
 
-pub fn run(command: &LanCommand) -> Result<()> {
+/// A pairing just made: the device's name and the `tiro://pair` link its
+/// QR code carries.
+pub(crate) struct NewPairing {
+    pub name: String,
+    pub link: String,
+}
+
+/// Pairs a device as `name`, replacing one already paired by that name, at
+/// `host` (default: this Mac's LAN address).
+pub(crate) fn pair(name: &str, host: Option<&str>) -> Result<NewPairing> {
+    let certificate = certificate()?;
+    let host = match host {
+        Some(host) => host.to_string(),
+        None => lan_address().ok_or_else(|| eyre!("no LAN address; pass --host"))?,
+    };
+    let mut random = [0_u8; 32];
+    getrandom::fill(&mut random).map_err(|error| eyre!("no secure random source: {error}"))?;
+    let token: String = random.iter().map(|byte| format!("{byte:02x}")).collect();
     let path = devices_path()?;
+    let mut devices = read_devices(&path);
+    devices.retain(|device| device.name != name);
+    devices.push(Device {
+        name: name.to_string(),
+        token_sha256: sha256_hex(token.as_bytes()),
+        paired_at_ms: std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(0, |elapsed| elapsed.as_millis() as u64),
+    });
+    write_devices(&path, &devices)?;
+    Ok(NewPairing {
+        name: name.to_string(),
+        link: pairing_link(&host, super::port(), &token, &certificate.fingerprint, name),
+    })
+}
+
+/// Paired devices' names, oldest first.
+pub(crate) fn device_names() -> Vec<String> {
+    devices_path()
+        .map(|path| {
+            read_devices(&path)
+                .into_iter()
+                .map(|device| device.name)
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// `base`, or `base 2`, `base 3`, … whichever no paired device has.
+pub(crate) fn unused_name(base: &str) -> String {
+    let taken = device_names();
+    (1..)
+        .map(|n| {
+            if n == 1 {
+                base.to_string()
+            } else {
+                format!("{base} {n}")
+            }
+        })
+        .find(|name| !taken.contains(name))
+        .unwrap_or_else(|| base.to_string())
+}
+
+pub(crate) fn revoke(name: &str) -> Result<()> {
+    let path = devices_path()?;
+    let mut devices = read_devices(&path);
+    let before = devices.len();
+    devices.retain(|device| device.name != name);
+    if devices.len() == before {
+        bail!("no paired device named {name}");
+    }
+    write_devices(&path, &devices)
+}
+
+/// `text`'s QR code as rows of modules, true for dark, without a quiet zone.
+pub(crate) fn qr_modules(text: &str) -> Result<Vec<Vec<bool>>> {
+    let code = qrcode::QrCode::new(text.as_bytes()).map_err(|error| eyre!("{error}"))?;
+    let width = code.width();
+    let colors = code.to_colors();
+    Ok(colors
+        .chunks(width)
+        .map(|row| {
+            row.iter()
+                .map(|color| *color == qrcode::Color::Dark)
+                .collect()
+        })
+        .collect())
+}
+
+pub fn run(command: &LanCommand) -> Result<()> {
     match command {
         LanCommand::Pair { name, host } => {
-            let certificate = certificate()?;
-            let host = match host {
-                Some(host) => host.clone(),
-                None => lan_address().ok_or_else(|| eyre!("no LAN address; pass --host"))?,
-            };
-            let mut random = [0_u8; 32];
-            getrandom::fill(&mut random)
-                .map_err(|error| eyre!("no secure random source: {error}"))?;
-            let token: String = random.iter().map(|byte| format!("{byte:02x}")).collect();
-            let mut devices = read_devices(&path);
-            devices.retain(|device| device.name != *name);
-            devices.push(Device {
-                name: name.clone(),
-                token_sha256: sha256_hex(token.as_bytes()),
-                paired_at_ms: std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .map_or(0, |elapsed| elapsed.as_millis() as u64),
-            });
-            write_devices(&path, &devices)?;
-            let link = pairing_link(&host, super::port(), &token, &certificate.fingerprint, name);
-            println!("{}", qr(&link)?);
-            println!("Scan with the phone's camera, or open this link on it:\n\n{link}\n");
+            let pairing = pair(name, host.as_deref())?;
+            println!("{}", qr(&pairing.link)?);
+            println!(
+                "Scan with the phone's camera, or open this link on it:\n\n{}\n",
+                pairing.link
+            );
             if !crate::app_settings::AppSettings::saved_labs().lan_dictation {
                 println!("LAN dictation is off. Turn it on with `hex labs on lan-dictation`.");
             }
         }
         LanCommand::Devices => {
-            let devices = read_devices(&path);
+            let devices = device_names();
             if devices.is_empty() {
                 println!("No paired devices.");
             }
-            for device in devices {
-                println!("{}", device.name);
+            for name in devices {
+                println!("{name}");
             }
         }
         LanCommand::Revoke { name } => {
-            let mut devices = read_devices(&path);
-            let before = devices.len();
-            devices.retain(|device| device.name != *name);
-            if devices.len() == before {
-                bail!("no paired device named {name}");
-            }
-            write_devices(&path, &devices)?;
+            revoke(name)?;
             println!("Unpaired {name}.");
         }
     }

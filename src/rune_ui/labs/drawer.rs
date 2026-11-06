@@ -120,6 +120,12 @@ fn body(ui: &Ui, p: Paint, entry: &Row) -> El {
                 .font(DESCRIPTION)
                 .color(p.muted()),
         );
+    // LAN dictation's phones take the preview's place while it's on.
+    #[cfg(target_os = "macos")]
+    let phones = (entry.lab == Lab::Feature(Feature::LanDictation) && entry.on)
+        .then(|| super::lan::body(ui, p));
+    #[cfg(not(target_os = "macos"))]
+    let phones: Option<El> = None;
     let mut body = col()
         .key("body")
         .grow(1.0)
@@ -133,14 +139,19 @@ fn body(ui: &Ui, p: Paint, entry: &Row) -> El {
                 .font(p.k.ty.ui)
                 .color(p.text())
                 .wrap(),
-        )
-        .child(preview)
-        .child(fact(
-            p,
-            "shows-up-in",
-            tr("Shows up in"),
-            place(ui, p, entry.lab),
-        ));
+        );
+    if phones.is_none() {
+        body = body.child(preview);
+    }
+    body = body.child(fact(
+        p,
+        "shows-up-in",
+        tr("Shows up in"),
+        place(ui, p, entry.lab),
+    ));
+    if let Some(phones) = phones {
+        body = body.child(phones);
+    }
     #[cfg(all(target_os = "macos", hex_capture))]
     if entry.lab == Lab::Feature(Feature::Screenshots) {
         let system = entry.on && crate::screenshots::system_takes_shortcut();
