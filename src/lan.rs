@@ -14,8 +14,11 @@
 //! ```
 //!
 //! Pairing (`hex lan pair`) prints a `tiro://pair` link and its QR code:
-//! address, port, device token, and the certificate's SHA-256.
+//! address, port, device token, and the certificate's SHA-256. While it
+//! listens, the Mac also advertises itself over Bonjour (`bonjour`), so a
+//! phone finds it again after its address changes.
 
+mod bonjour;
 mod dictate;
 mod loopback;
 mod pairing;
@@ -55,7 +58,7 @@ pub fn start() {
 
 fn watch() {
     static ACTIVE: AtomicUsize = AtomicUsize::new(0);
-    let mut listening: Option<(TcpListener, Arc<rustls::ServerConfig>)> = None;
+    let mut listening: Option<Listening> = None;
     loop {
         if !crate::labs::lan_dictation() {
             if listening.take().is_some() {
@@ -64,7 +67,10 @@ fn watch() {
             std::thread::sleep(Duration::from_secs(1));
             continue;
         }
-        let Some((listener, config)) = &listening else {
+        let Some(Listening {
+            listener, config, ..
+        }) = &listening
+        else {
             match bind() {
                 Ok(bound) => listening = Some(bound),
                 Err(error) => {
@@ -99,14 +105,25 @@ fn watch() {
     }
 }
 
-fn bind() -> color_eyre::Result<(TcpListener, Arc<rustls::ServerConfig>)> {
+/// The open port, and its Bonjour advert for as long as it's open.
+struct Listening {
+    listener: TcpListener,
+    config: Arc<rustls::ServerConfig>,
+    _advert: Option<bonjour::Advert>,
+}
+
+fn bind() -> color_eyre::Result<Listening> {
     let certificate = pairing::certificate()?;
     let config = server_config(&certificate.pem, &certificate.key)?;
     let listener = TcpListener::bind(("0.0.0.0", port()))?;
     // Polled, so turning the switch off closes the port within a second.
     listener.set_nonblocking(true)?;
     tracing::info!(port = port(), "LAN dictation listening");
-    Ok((listener, config))
+    Ok(Listening {
+        listener,
+        config,
+        _advert: bonjour::Advert::new(port(), &certificate.fingerprint),
+    })
 }
 
 /// Always answers with the one certificate.
