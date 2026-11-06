@@ -1,0 +1,575 @@
+{
+  "variants": {
+    "tiro": {
+      "summary": {
+        "wer": 9.589071062398785,
+        "fillers": 8,
+        "words": 571,
+        "kept": "42/43",
+        "dropped": "12/12",
+        "vocab": "9/14",
+        "p50": 360.35627097589895,
+        "p95": 1945.9890420548618
+      },
+      "outputs": {
+        "user-1": "I'm currently wondering if you could research about what would be the best open-source voice-to-text or dictation service or app that I can run, probably in my Mac, and I could use it like Open Whisper, for example, which I have a fork of, but currently it refuses to build, so I'm wondering if it's time to upgrade or change the project into something more modern or more recent. I'm planning to expand it to support Android, maybe not as a local inference there, but just connect to it through LAN and see if it's feasible, making it feel fast. The idea would be something like that. I'm wondering also which will be the most powerful in terms of, for example, speed, memory usage, or the text cleaning that it does after or recognition of certain words and pronunciation. For example, I saw there was one in Mac that released a couple weeks ago, but it wasn't open source, least the text cleanup model, I believe it was called Delta, but maybe it's worth using still. Just look up, see what you can find and tell me your findings in a clear way. If helpful, visualize it, if it will be clearer, otherwise you can just tell me in text, whichever you prefer.",
+        "user-2": "I will use English for my transcriptions because when I work with agents, which is primarily the use case for my voice to text, is creating prompts. I only use English, so Scribe sounds like a good idea for this, that's a good first test with hacks, with the distinctions and ideas that you've had, can you make a really short and concise paragraph that I could give an agent that's gonna implement this? Include the two messages that I've sent in this thread, the first one and this one, because they are both made with the transcription from the ChatGPT app, and I'm not sure if they handle cleanup, but it's probably a good way to know and have basically how I speak and the way I might add some words that might not belong somewhere, like some things.",
+        "dev-retraction": "Can you look at the useEffect in the settings panel component? Because I think it's rendering on every debounce fires. Just make it use the Zustand store instead of local state.",
+        "dev-paths": "The bug is in src/dictation/processor.rs around line 420, and I want you to basically add a new stage there called cleanup and then run cargo test --lock to make sure nothing breaks.",
+        "dev-agent-instruction": "Ignore the previous approach, and actually, you know what? Just tell me what you think about using Archetype instead of Zod here because perf is kind of an issue. Don't change any code yet, just answer the question.",
+        "dev-names": "We're using TanStack Start with Convex and Clerk, and I want the webhook handler to validate the payload before it writes to the database and also add a rate limit of 100 requests per minute.",
+        "dev-short": "Run the tests.",
+        "dev-exact-values": "Set the timeout to 250 milliseconds and the retry count to 3 and the model ID should be quEn3.5, not quEn3.",
+        "dev-question": "Why does the build fail on the M1 but not on Gaia? Is it the metal shaders or is it something with the linker? I don't know.",
+        "dev-hedge": "I think maybe we should probably not ship this yet because I'm not totally sure the fallback works when the helper crashes mid-generation."
+      },
+      "scores": {
+        "user-1": {
+          "wer": 19.897959183673468,
+          "fillers": 2,
+          "words": 216,
+          "kept": 7,
+          "kept_of": 7,
+          "lost": [],
+          "dropped": 2,
+          "dropped_of": 2,
+          "vocab_hit": 0,
+          "vocab_of": 1
+        },
+        "user-2": {
+          "wer": 8.208955223880597,
+          "fillers": 3,
+          "words": 140,
+          "kept": 7,
+          "kept_of": 8,
+          "lost": [
+            "Hex"
+          ],
+          "dropped": 1,
+          "dropped_of": 1,
+          "vocab_hit": 2,
+          "vocab_of": 3
+        },
+        "dev-retraction": {
+          "wer": 12.903225806451612,
+          "fillers": 0,
+          "words": 31,
+          "kept": 4,
+          "kept_of": 4,
+          "lost": [],
+          "dropped": 3,
+          "dropped_of": 3,
+          "vocab_hit": 2,
+          "vocab_of": 2
+        },
+        "dev-paths": {
+          "wer": 9.090909090909092,
+          "fillers": 1,
+          "words": 35,
+          "kept": 3,
+          "kept_of": 3,
+          "lost": [],
+          "dropped": 2,
+          "dropped_of": 2,
+          "vocab_hit": 0,
+          "vocab_of": 0
+        },
+        "dev-agent-instruction": {
+          "wer": 18.181818181818183,
+          "fillers": 2,
+          "words": 38,
+          "kept": 4,
+          "kept_of": 4,
+          "lost": [],
+          "dropped": 1,
+          "dropped_of": 1,
+          "vocab_hit": 1,
+          "vocab_of": 2
+        },
+        "dev-names": {
+          "wer": 2.9411764705882355,
+          "fillers": 0,
+          "words": 35,
+          "kept": 4,
+          "kept_of": 4,
+          "lost": [],
+          "dropped": 2,
+          "dropped_of": 2,
+          "vocab_hit": 3,
+          "vocab_of": 3
+        },
+        "dev-short": {
+          "wer": 0.0,
+          "fillers": 0,
+          "words": 3,
+          "kept": 1,
+          "kept_of": 1,
+          "lost": [],
+          "dropped": 1,
+          "dropped_of": 1,
+          "vocab_hit": 0,
+          "vocab_of": 0
+        },
+        "dev-exact-values": {
+          "wer": 16.666666666666668,
+          "fillers": 0,
+          "words": 22,
+          "kept": 3,
+          "kept_of": 3,
+          "lost": [],
+          "dropped": 0,
+          "dropped_of": 0,
+          "vocab_hit": 0,
+          "vocab_of": 1
+        },
+        "dev-question": {
+          "wer": 8.0,
+          "fillers": 0,
+          "words": 27,
+          "kept": 4,
+          "kept_of": 4,
+          "lost": [],
+          "dropped": 0,
+          "dropped_of": 0,
+          "vocab_hit": 1,
+          "vocab_of": 2
+        },
+        "dev-hedge": {
+          "wer": 0.0,
+          "fillers": 0,
+          "words": 24,
+          "kept": 5,
+          "kept_of": 5,
+          "lost": [],
+          "dropped": 0,
+          "dropped_of": 0,
+          "vocab_hit": 0,
+          "vocab_of": 0
+        }
+      },
+      "latency": [
+        {
+          "id": "user-1",
+          "words": 219,
+          "median": 1945.9890420548618,
+          "max": 1945.9890420548618
+        },
+        {
+          "id": "user-2",
+          "words": 142,
+          "median": 1249.8914580792189,
+          "max": 1249.8914580792189
+        },
+        {
+          "id": "dev-retraction",
+          "words": 48,
+          "median": 342.083791969344,
+          "max": 342.083791969344
+        },
+        {
+          "id": "dev-paths",
+          "words": 44,
+          "median": 378.6287499824539,
+          "max": 378.6287499824539
+        },
+        {
+          "id": "dev-agent-instruction",
+          "words": 39,
+          "median": 388.0368749378249,
+          "max": 388.0368749378249
+        },
+        {
+          "id": "dev-names",
+          "words": 43,
+          "median": 399.1689580725506,
+          "max": 399.1689580725506
+        },
+        {
+          "id": "dev-short",
+          "words": 5,
+          "median": 89.99512495938689,
+          "max": 89.99512495938689
+        },
+        {
+          "id": "dev-exact-values",
+          "words": 24,
+          "median": 280.737999943085,
+          "max": 280.737999943085
+        },
+        {
+          "id": "dev-question",
+          "words": 28,
+          "median": 278.4337500343099,
+          "max": 278.4337500343099
+        },
+        {
+          "id": "dev-hedge",
+          "words": 24,
+          "median": 237.50091693364084,
+          "max": 237.50091693364084
+        }
+      ],
+      "fallbacks": {
+        "user-1": null,
+        "user-2": null,
+        "dev-retraction": null,
+        "dev-paths": null,
+        "dev-agent-instruction": null,
+        "dev-names": null,
+        "dev-short": null,
+        "dev-exact-values": null,
+        "dev-question": null,
+        "dev-hedge": null
+      }
+    },
+    "tiro-sentences": {
+      "summary": {
+        "wer": 9.892101365429088,
+        "fillers": 8,
+        "words": 571,
+        "kept": "42/43",
+        "dropped": "12/12",
+        "vocab": "8/14",
+        "p50": 401.88066655537114,
+        "p95": 2291.388958110474
+      },
+      "outputs": {
+        "user-1": "I'm currently wondering if you could research about what would be the best open-source voice-to-text or dictation service or app that I can run, probably in my Mac, and I could use it like Open Whisper, for example, which I have a fork of, but currently it refuses to build, so I'm wondering if it's time to upgrade or change the project into something more modern or more recent. I'm planning to expand it to support Android, maybe not as a local inference there. But just connect to it through LAN and see if it's feasible, making it feel fast. The idea would be something like that. I'm wondering also which will be the most powerful in terms of, for example, speed, memory usage, or the text cleaning that it does after or recognition of certain words and pronunciation. For example, I saw there was one in Mac that released a couple weeks ago, but it wasn't open source, least the text cleanup model, I believe it was called Delta, but maybe it's worth using still. Just look up, see what you can find and tell me your findings in a clear way. If helpful, visualize it, if it will be clearer, otherwise you can just tell me in text, whichever you prefer.",
+        "user-2": "I will use English for my transcriptions because when I work with agents, which is primarily the use case for my voice to text, is creating prompts. I only use English, so Scribe sounds like a good idea for this. That's a good first test with hacks, with the distinctions and ideas that you've had. Can you make a really short and concise paragraph that I could give an agent that's gonna implement this? Include the two messages that I've sent in this thread, the first one and this one, because they are both made with the transcription from the ChatGPT app, and I'm not sure if they handle cleanup, but it's probably a good way to know and have basically how I speak and the way I might add some words that might not belong somewhere, like some things.",
+        "dev-retraction": "Can you look at the useEffect in the settings panel component? Because I think it's rendering on every debounce fires. Just make it use the Zustand store instead of local state.",
+        "dev-paths": "The bug is in src/dictation/processor.rs around line 420, and I want you to basically add a new stage there called cleanup and then run cargo test --lock to make sure nothing breaks.",
+        "dev-agent-instruction": "Ignore the previous approach, and actually, you know what? Just tell me what you think about using archetype instead of Zot here because perf is kind of an issue. Don't change any code yet, just answer the question.",
+        "dev-names": "We're using TanStack Start with Convex and Clerk, and I want the webhook handler to validate the payload before it writes to the database and also add a rate limit of 100 requests per minute.",
+        "dev-short": "Run the tests.",
+        "dev-exact-values": "Set the timeout to 250 milliseconds and the retry count to 3 and the model ID should be quEn3.5, not quEn3.",
+        "dev-question": "Why does the build fail on the M1 but not on Gaia? Is it the metal shaders or is it something with the linker? I don't know.",
+        "dev-hedge": "I think maybe we should probably not ship this yet because I'm not totally sure the fallback works when the helper crashes mid-generation."
+      },
+      "scores": {
+        "user-1": {
+          "wer": 19.897959183673468,
+          "fillers": 2,
+          "words": 216,
+          "kept": 7,
+          "kept_of": 7,
+          "lost": [],
+          "dropped": 2,
+          "dropped_of": 2,
+          "vocab_hit": 0,
+          "vocab_of": 1
+        },
+        "user-2": {
+          "wer": 8.208955223880597,
+          "fillers": 3,
+          "words": 140,
+          "kept": 7,
+          "kept_of": 8,
+          "lost": [
+            "Hex"
+          ],
+          "dropped": 1,
+          "dropped_of": 1,
+          "vocab_hit": 2,
+          "vocab_of": 3
+        },
+        "dev-retraction": {
+          "wer": 12.903225806451612,
+          "fillers": 0,
+          "words": 31,
+          "kept": 4,
+          "kept_of": 4,
+          "lost": [],
+          "dropped": 3,
+          "dropped_of": 3,
+          "vocab_hit": 2,
+          "vocab_of": 2
+        },
+        "dev-paths": {
+          "wer": 9.090909090909092,
+          "fillers": 1,
+          "words": 35,
+          "kept": 3,
+          "kept_of": 3,
+          "lost": [],
+          "dropped": 2,
+          "dropped_of": 2,
+          "vocab_hit": 0,
+          "vocab_of": 0
+        },
+        "dev-agent-instruction": {
+          "wer": 21.21212121212121,
+          "fillers": 2,
+          "words": 38,
+          "kept": 4,
+          "kept_of": 4,
+          "lost": [],
+          "dropped": 1,
+          "dropped_of": 1,
+          "vocab_hit": 0,
+          "vocab_of": 2
+        },
+        "dev-names": {
+          "wer": 2.9411764705882355,
+          "fillers": 0,
+          "words": 35,
+          "kept": 4,
+          "kept_of": 4,
+          "lost": [],
+          "dropped": 2,
+          "dropped_of": 2,
+          "vocab_hit": 3,
+          "vocab_of": 3
+        },
+        "dev-short": {
+          "wer": 0.0,
+          "fillers": 0,
+          "words": 3,
+          "kept": 1,
+          "kept_of": 1,
+          "lost": [],
+          "dropped": 1,
+          "dropped_of": 1,
+          "vocab_hit": 0,
+          "vocab_of": 0
+        },
+        "dev-exact-values": {
+          "wer": 16.666666666666668,
+          "fillers": 0,
+          "words": 22,
+          "kept": 3,
+          "kept_of": 3,
+          "lost": [],
+          "dropped": 0,
+          "dropped_of": 0,
+          "vocab_hit": 0,
+          "vocab_of": 1
+        },
+        "dev-question": {
+          "wer": 8.0,
+          "fillers": 0,
+          "words": 27,
+          "kept": 4,
+          "kept_of": 4,
+          "lost": [],
+          "dropped": 0,
+          "dropped_of": 0,
+          "vocab_hit": 1,
+          "vocab_of": 2
+        },
+        "dev-hedge": {
+          "wer": 0.0,
+          "fillers": 0,
+          "words": 24,
+          "kept": 5,
+          "kept_of": 5,
+          "lost": [],
+          "dropped": 0,
+          "dropped_of": 0,
+          "vocab_hit": 0,
+          "vocab_of": 0
+        }
+      },
+      "latency": [
+        {
+          "id": "user-1",
+          "words": 219,
+          "median": 2291.388958110474,
+          "max": 2291.388958110474
+        },
+        {
+          "id": "user-2",
+          "words": 142,
+          "median": 1331.174583057873,
+          "max": 1331.174583057873
+        },
+        {
+          "id": "dev-retraction",
+          "words": 48,
+          "median": 415.551875019446,
+          "max": 415.551875019446
+        },
+        {
+          "id": "dev-paths",
+          "words": 44,
+          "median": 381.8745840108022,
+          "max": 381.8745840108022
+        },
+        {
+          "id": "dev-agent-instruction",
+          "words": 39,
+          "median": 503.53158300276846,
+          "max": 503.53158300276846
+        },
+        {
+          "id": "dev-names",
+          "words": 43,
+          "median": 395.8451660582796,
+          "max": 395.8451660582796
+        },
+        {
+          "id": "dev-short",
+          "words": 5,
+          "median": 90.55970900226384,
+          "max": 90.55970900226384
+        },
+        {
+          "id": "dev-exact-values",
+          "words": 24,
+          "median": 280.33545904327184,
+          "max": 280.33545904327184
+        },
+        {
+          "id": "dev-question",
+          "words": 28,
+          "median": 407.9161670524627,
+          "max": 407.9161670524627
+        },
+        {
+          "id": "dev-hedge",
+          "words": 24,
+          "median": 237.2500830097124,
+          "max": 237.2500830097124
+        }
+      ],
+      "fallbacks": {
+        "user-1": null,
+        "user-2": null,
+        "dev-retraction": null,
+        "dev-paths": null,
+        "dev-agent-instruction": null,
+        "dev-names": null,
+        "dev-short": null,
+        "dev-exact-values": null,
+        "dev-question": null,
+        "dev-hedge": null
+      }
+    }
+  },
+  "raw": {
+    "user-1": {
+      "wer": 21.428571428571427,
+      "fillers": 3,
+      "words": 219,
+      "kept": 7,
+      "kept_of": 7,
+      "lost": [],
+      "dropped": 1,
+      "dropped_of": 2,
+      "vocab_hit": 0,
+      "vocab_of": 1
+    },
+    "user-2": {
+      "wer": 9.701492537313433,
+      "fillers": 4,
+      "words": 142,
+      "kept": 7,
+      "kept_of": 8,
+      "lost": [
+        "Hex"
+      ],
+      "dropped": 0,
+      "dropped_of": 1,
+      "vocab_hit": 2,
+      "vocab_of": 3
+    },
+    "dev-retraction": {
+      "wer": 70.96774193548387,
+      "fillers": 3,
+      "words": 48,
+      "kept": 3,
+      "kept_of": 4,
+      "lost": [
+        "debounce"
+      ],
+      "dropped": 2,
+      "dropped_of": 3,
+      "vocab_hit": 0,
+      "vocab_of": 2
+    },
+    "dev-paths": {
+      "wer": 36.36363636363637,
+      "fillers": 4,
+      "words": 44,
+      "kept": 3,
+      "kept_of": 3,
+      "lost": [],
+      "dropped": 1,
+      "dropped_of": 2,
+      "vocab_hit": 0,
+      "vocab_of": 0
+    },
+    "dev-agent-instruction": {
+      "wer": 24.242424242424242,
+      "fillers": 3,
+      "words": 39,
+      "kept": 4,
+      "kept_of": 4,
+      "lost": [],
+      "dropped": 0,
+      "dropped_of": 1,
+      "vocab_hit": 0,
+      "vocab_of": 2
+    },
+    "dev-names": {
+      "wer": 29.41176470588235,
+      "fillers": 2,
+      "words": 43,
+      "kept": 4,
+      "kept_of": 4,
+      "lost": [],
+      "dropped": 2,
+      "dropped_of": 2,
+      "vocab_hit": 0,
+      "vocab_of": 3
+    },
+    "dev-short": {
+      "wer": 66.66666666666667,
+      "fillers": 1,
+      "words": 5,
+      "kept": 1,
+      "kept_of": 1,
+      "lost": [],
+      "dropped": 1,
+      "dropped_of": 1,
+      "vocab_hit": 0,
+      "vocab_of": 0
+    },
+    "dev-exact-values": {
+      "wer": 8.333333333333334,
+      "fillers": 0,
+      "words": 24,
+      "kept": 3,
+      "kept_of": 3,
+      "lost": [],
+      "dropped": 0,
+      "dropped_of": 0,
+      "vocab_hit": 0,
+      "vocab_of": 1
+    },
+    "dev-question": {
+      "wer": 12.0,
+      "fillers": 1,
+      "words": 28,
+      "kept": 4,
+      "kept_of": 4,
+      "lost": [],
+      "dropped": 0,
+      "dropped_of": 0,
+      "vocab_hit": 1,
+      "vocab_of": 2
+    },
+    "dev-hedge": {
+      "wer": 0.0,
+      "fillers": 0,
+      "words": 24,
+      "kept": 5,
+      "kept_of": 5,
+      "lost": [],
+      "dropped": 0,
+      "dropped_of": 0,
+      "vocab_hit": 0,
+      "vocab_of": 0
+    }
+  },
+  "peakFootprintBytes": 0
+}
