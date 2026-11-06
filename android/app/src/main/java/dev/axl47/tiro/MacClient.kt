@@ -48,20 +48,18 @@ class MacClient(private val pairing: Pairing) {
     /**
      * Call when a dictation starts, off the main thread: connects while you
      * speak, so the dictation itself can resume this TLS session, and learns
-     * whether the Mac has `/dictate`. Throws [Failure] when the Mac can't be reached.
+     * whether the Mac has `/dictate` (asked every time, so a Mac updated
+     * while this app runs is noticed). Throws [Failure] when the Mac can't be
+     * reached.
      */
     fun warm() {
-        if (hasDictate(pairing.fingerprint) != null) {
-            health()
-            return
-        }
         // Empty, so an older Mac's 404 arrives cleanly: it refuses unknown
         // routes before reading a body, and a refused upload reads as a reset.
         val supported = try {
             request("POST", "/dictate", "audio/wav", ByteArray(0))
             true
         } catch (failure: Failure) {
-            if (failure.code == null) return // Unreachable: learn nothing.
+            if (failure.code == null) throw failure
             failure.code != "not-found"
         }
         learned(pairing.fingerprint, supported)
@@ -69,7 +67,7 @@ class MacClient(private val pairing: Pairing) {
 
     /** Transcribed and cleaned up in one request; null from a Mac too old to have `/dictate`. */
     fun dictate(wav: ByteArray): String? {
-        if (hasDictate(pairing.fingerprint) == null) warm()
+        if (hasDictate(pairing.fingerprint) == null) runCatching { warm() }
         if (hasDictate(pairing.fingerprint) == false) return null
         return JSONObject(request("POST", "/dictate", "audio/wav", wav)).getString("text")
     }

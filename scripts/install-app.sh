@@ -29,9 +29,10 @@ stop_bundle() {
 mkdir -p "$install_dir"
 if [ -e "$installed_bundle" ] || [ -L "$installed_bundle" ]; then
   existing_id=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$installed_bundle/Contents/Info.plist" 2>/dev/null || true)
-  # The Kit-signed com.kitlangton.hex2 build is the same Rust app under its old identity.
+  # The Kit-signed com.kitlangton.hex2 build is the same Rust app under its old identity;
+  # dev.axl47.tiro is Tiro, this fork.
   case "$existing_id" in
-    anomaly.hex | com.kitlangton.hex2) ;;
+    anomaly.hex | com.kitlangton.hex2 | dev.axl47.tiro) ;;
     *)
       echo "Refusing to replace $installed_bundle: it is not the Rust Hex app. Install the new app manually." >&2
       exit 1

@@ -61,8 +61,8 @@ Mac.
   small requests; measure first.
 - **Connect while you speak.** When a dictation starts, the phone sends an empty
   `POST /dictate` on a background thread: it does the TLS handshake while you talk (one
-  TLS context per pinned Mac, so the dictation resumes that session) and learns whether
-  the Mac has `/dictate`. An older Mac answers `404 not-found`, and the phone then uses
+  TLS context per pinned Mac, so the dictation resumes that session) and learns, every
+  time, whether the Mac has `/dictate`. An older Mac answers `404 not-found`, and the phone then uses
   `/transcriptions` followed by `/cleanup`. The probe is empty because an older Mac
   refuses unknown routes before reading the body, and a refused upload reaches the
   phone as a reset, not as the 404.
@@ -116,9 +116,14 @@ Mac.
 - **One request, against a Mac without `/dictate` (2026-11-05, same phone):** the probe
   learned the route is missing and three fixture dictations typed through the two
   requests: 2.6 s (cleanup helper cold), then 0.49 s and 0.50 s, down from 0.72 s
-  before the shared TLS context and the early connection. `/dictate` itself is covered
-  by unit tests (`lan::dictate`, `lan::proxy`), not yet by a phone talking to an
-  installed build.
+  before the shared TLS context and the early connection.
+- **`/dictate` against two requests, same installed Mac build (2026-11-05):** in the
+  app, warm fixture dictations typed in a median 692 ms (15 runs) with `/dictate` and
+  758 ms (5 runs, a temporary build forced onto two requests), about 65 ms saved. Over
+  Wi-Fi with `curl` on the phone, a full handshake per request, `/dictate` took a median
+  0.68 s against 0.82 s for the pair. The Mac's own work is most of it: about 0.3 s to
+  transcribe and 0.23 s to clean up a 3.4 s clip. The same dictation measured 477 ms
+  against the Mac build before, so compare runs only on one build in one sitting.
 - After `adb install -r`, One UI can leave the accessibility service stuck in "Binding"
   for minutes; turning it off and on again binds it at once.
 - **Not verified on the volume key:** a person speaking into the phone. The Mac's
