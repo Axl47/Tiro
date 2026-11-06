@@ -75,6 +75,44 @@ some fillers and punctuates.
 - **Recognition errors pass through.** `--locked` heard as `--lock`, "Jest" as "just".
   Cleanup can only fix these for terms in your vocabulary.
 
+## Sentence by sentence
+
+A streamed LAN dictation (`src/lan/stream.rs`) cleans each sentence while the phone still
+records, so the release waits only on the last one. `bench.py --api` scores that as
+`tiro-sentences`: each sentence through `POST /cleanup` alone, except that a sentence
+opening with a correction ("No actually five…", "I mean…") stays with the one before.
+Inputs are the corpus clips streamed through `/streams` at real-time pace
+([`streamed-transcripts.json`](results-2026-11-05/streamed-transcripts.json), usable as `--inputs`).
+
+| Input | Error | Fillers | Kept | Dropped | Vocabulary |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Held-out, whole transcript | 8.7% | 2 | 23/25 | 7/7 | 3/3 |
+| Held-out, by sentence | 8.7% | 2 | 23/25 | 7/7 | 3/3 |
+| Main, whole transcript | 9.6% | 8 | 42/43 | 12/12 | 9/14 |
+| Main, by sentence | 9.9% | 8 | 42/43 | 12/12 | 8/14 |
+
+Without the correction rule, by sentence scored 10.3% and 12.2%, and lost one dropped
+disfluency in each set: "three attempts? No actually five attempts" kept both counts.
+The rule was written after seeing that row, so the held-out set no longer tests it. The
+one remaining difference is context: alone, "Zot" stayed "Zot"; in the whole transcript
+it became "Zod".
+
+## Prompt lookup doesn't pay here
+
+A cleaned dictation is mostly the transcript again, so drafting tokens by copying from
+the transcript and verifying them in one pass (prompt-lookup decoding) looked like a
+lossless speedup. It produced the same text in 12 passes instead of 43, and took just
+as long. One forward pass, warm, M1 Pro:
+
+| Tokens per pass | 1 | 2 | 4 | 8 | 16 | 32 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Time | 9 ms | 12 ms | 19 ms | 33 ms | 44 ms | 44 ms |
+
+Below about 16 rows MLX's quantized matmul runs as a matrix-vector product per row, so a
+pass costs nearly as much as decoding its tokens one at a time, and even a wide pass costs
+five single steps. Cleanup's edits (casing, punctuation, fillers) end a guess every few
+tokens, and each miss costs another pass to restore the recurrent layers' state.
+
 ## Speed and memory
 
 Real app, one Parakeet stream and one helper, from `dictation stop` to text:
@@ -123,6 +161,10 @@ benchmarks/cleanup/make_clips.py "$CLIPS"
 # Scribe through the helper; add --api <data-dir> with `hex service` running for the full stage
 benchmarks/cleanup/bench.py --helper target/app/Tiro.app/Contents/Helpers/tiro-scribe \
   --model "$MODELS/vedu-scribe-7dced584"
+
+# Only the full stage, whole and by sentence, against the running app
+benchmarks/cleanup/bench.py --variants "" --api "$HOME/Library/Application Support/tiro" \
+  --inputs benchmarks/cleanup/results-2026-11-05/streamed-transcripts.json --repeats 1
 
 # Through the real app, in its own data folder
 benchmarks/cleanup/e2e.py --app target/app/Tiro.app --clips "$CLIPS" --models "$MODELS" \

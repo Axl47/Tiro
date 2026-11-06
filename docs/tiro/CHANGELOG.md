@@ -17,4 +17,7 @@
 
 ### Changed
 
+- A streamed Android dictation cleans up each sentence while you're still speaking,
+  so the text lands about twice as fast after you let go (~280 ms instead of ~560 ms
+  on an 11 s dictation).
 - Android now uses the desktop app’s silver hexagon icon.

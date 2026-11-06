@@ -11,6 +11,9 @@ disfluencies) plus warm latency and memory. Standard library only.
 
 `--api` reads a running Tiro's local-api.json and adds a `tiro` row: POST /cleanup,
 the path dictation takes, with its own vocabulary selection, guard, and residue pass.
+It also adds `tiro-sentences`: each sentence through POST /cleanup on its own, as a
+streamed LAN dictation cleans the sentences it has finished while the phone records
+(`src/lan/stream.rs`). Pass `--variants ""` to skip the helper and run only these.
 """
 
 import argparse
@@ -89,6 +92,28 @@ class Pipeline:
         return reply
 
 
+# Mirrors `CORRECTIONS` in `src/lan/stream.rs`: a sentence opening with one stays with
+# the sentence before it, so cleanup still sees the retraction.
+CORRECTIONS = ["no", "nope", "wait", "actually", "sorry", "oops", "scratch", "i mean",
+               "or", "rather", "not", "instead", "make that", "change that", "never mind"]
+
+
+def sentences(text):
+    """Split like `src/lan/stream.rs`: after `.`, `?` or `!` and the space that follows,
+    except before a sentence that opens with a correction, which stays with the one
+    before it."""
+    units = []
+    for piece in re.split(r"(?<=[.?!])\s+", text.strip()):
+        if not piece:
+            continue
+        opening = " ".join(re.findall(r"[a-z']+", piece.lower())[:2])
+        if units and any(opening == c or opening.startswith(c + " ") for c in CORRECTIONS):
+            units[-1] += " " + piece
+        else:
+            units.append(piece)
+    return units
+
+
 def words(text):
     return re.findall(r"[a-z0-9']+", text.lower().replace("-", " ").replace("/", " "))
 
@@ -158,8 +183,8 @@ def summarize(scores):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--helper", required=True)
-    parser.add_argument("--model", required=True)
+    parser.add_argument("--helper")
+    parser.add_argument("--model")
     parser.add_argument("--corpus", default=str(ROOT / "corpus.json"))
     parser.add_argument("--inputs", help="JSON map of row id to transcript, replacing `raw`")
     parser.add_argument("--variants", default=",".join(VARIANTS))
@@ -173,19 +198,22 @@ def main():
         inputs = json.loads(Path(args.inputs).read_text())
         rows = [dict(row, raw=inputs[row["id"]]) for row in rows if row["id"] in inputs]
 
-    helper = Helper(args.helper, args.model)
-    print(f"ready: {helper.ready}", file=sys.stderr)
-    # The first inference compiles Metal pipelines; report it, then keep it out
-    # of the warm numbers.
-    first = helper.clean("um run the tests")
-    cold = dict(firstInferenceMs=first["roundTripMs"], footprintBytes=first["footprintBytes"])
-
-    results = {"ready": helper.ready, "cold": cold, "variants": {}}
+    variants = [name for name in args.variants.split(",") if name]
+    results = {"variants": {}}
     results["raw"] = {r["id"]: score(r, r["raw"]) for r in rows}
     print_table = [("raw (no cleanup)", summarize(results["raw"].values()), None)]
-    peak = first["footprintBytes"]
+    helper, peak = None, 0
+    if variants:
+        helper = Helper(args.helper, args.model)
+        print(f"ready: {helper.ready}", file=sys.stderr)
+        # The first inference compiles Metal pipelines; report it, then keep it out
+        # of the warm numbers.
+        first = helper.clean("um run the tests")
+        cold = dict(firstInferenceMs=first["roundTripMs"], footprintBytes=first["footprintBytes"])
+        results.update(ready=helper.ready, cold=cold)
+        peak = first["footprintBytes"]
 
-    for name in args.variants.split(","):
+    for name in variants:
         config = VARIANTS[name]
         outputs, latencies, scores = {}, [], {}
         for row in rows:
@@ -212,34 +240,48 @@ def main():
         print_table.append((name, summary, latencies))
 
     results["peakFootprintBytes"] = peak
-    helper.close()
+    if helper:
+        helper.close()
 
     if args.api:
         pipeline = Pipeline(args.api)
         pipeline.clean("um run the tests")
-        outputs, latencies, scores, fallbacks = {}, [], {}, {}
-        for row in rows:
-            samples = [pipeline.clean(row["raw"]) for _ in range(args.repeats)]
-            reply = samples[-1]
-            outputs[row["id"]] = reply["text"]
-            scores[row["id"]] = score(row, reply["text"])
-            fallbacks[row["id"]] = reply.get("fallback")
-            latencies.append(dict(id=row["id"], words=len(words(row["raw"])),
-                                  median=statistics.median(s["roundTripMs"] for s in samples),
-                                  max=max(s["roundTripMs"] for s in samples)))
-        medians = [l["median"] for l in latencies]
-        summary = summarize(scores.values())
-        summary.update(p50=statistics.median(medians), p95=percentile(medians, 0.95))
-        results["variants"]["tiro"] = dict(summary=summary, outputs=outputs, scores=scores,
-                                           latency=latencies, fallbacks=fallbacks)
-        print_table.append(("tiro", summary, latencies))
+
+        def whole(text):
+            reply = pipeline.clean(text)
+            return reply["text"], reply["roundTripMs"], reply.get("fallback")
+
+        def by_sentence(text):
+            replies = [pipeline.clean(piece) for piece in sentences(text)]
+            cleaned = " ".join(r["text"] for r in replies if r["text"])
+            fallbacks = [r["fallback"] for r in replies if r.get("fallback")]
+            return cleaned, sum(r["roundTripMs"] for r in replies), fallbacks or None
+
+        for name, clean in (("tiro", whole), ("tiro-sentences", by_sentence)):
+            outputs, latencies, scores, fallbacks = {}, [], {}, {}
+            for row in rows:
+                samples = [clean(row["raw"]) for _ in range(args.repeats)]
+                text, _, fallback = samples[-1]
+                outputs[row["id"]] = text
+                scores[row["id"]] = score(row, text)
+                fallbacks[row["id"]] = fallback
+                latencies.append(dict(id=row["id"], words=len(words(row["raw"])),
+                                      median=statistics.median(s[1] for s in samples),
+                                      max=max(s[1] for s in samples)))
+            medians = [l["median"] for l in latencies]
+            summary = summarize(scores.values())
+            summary.update(p50=statistics.median(medians), p95=percentile(medians, 0.95))
+            results["variants"][name] = dict(summary=summary, outputs=outputs, scores=scores,
+                                             latency=latencies, fallbacks=fallbacks)
+            print_table.append((name, summary, latencies))
 
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
     (out / "latest.json").write_text(json.dumps(results, indent=2))
 
-    print(f"\nload {helper.ready['loadMs']} ms · first inference {cold['firstInferenceMs']:.0f} ms"
-          f" · peak footprint {peak / 2**20:.0f} MB")
+    if helper:
+        print(f"\nload {helper.ready['loadMs']} ms · first inference {cold['firstInferenceMs']:.0f} ms"
+              f" · peak footprint {peak / 2**20:.0f} MB")
     print(f"{'variant':<18}{'WER':>7}{'fillers':>9}{'words':>7}{'kept':>8}{'dropped':>9}{'vocab':>7}{'p50 ms':>8}{'p95 ms':>8}")
     for name, s, _ in print_table:
         print(f"{name:<18}{s['wer']:>7.1f}{s['fillers']:>9}{s['words']:>7}{s['kept']:>8}{s['dropped']:>9}"
