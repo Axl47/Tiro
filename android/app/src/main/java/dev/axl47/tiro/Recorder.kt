@@ -27,6 +27,10 @@ class Recorder(private val context: Context) {
     private var sampleRate = PREFERRED_RATE
     private var fixture: ByteArray? = null
 
+    /** The latest chunk's peak, 0 to 1, for a level meter. */
+    @Volatile var level = 0f
+        private set
+
     val hasPermission: Boolean
         get() = context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) ==
             PackageManager.PERMISSION_GRANTED
@@ -59,6 +63,7 @@ class Recorder(private val context: Context) {
             while (record === recording) {
                 val read = recording.read(chunk, 0, chunk.size)
                 if (read > 0 && pcm.size() < MAX_BYTES) synchronized(pcm) { pcm.write(chunk, 0, read) }
+                if (read > 0) level = peak(chunk, read)
                 if (read < 0) break
             }
         }
@@ -70,6 +75,7 @@ class Recorder(private val context: Context) {
         fixture?.let { fixture = null; return it }
         val recording = record ?: return null
         record = null
+        level = 0f
         reader?.join(500)
         reader = null
         runCatching { recording.stop() }
@@ -80,12 +86,22 @@ class Recorder(private val context: Context) {
 
     fun cancel() {
         fixture = null
+        level = 0f
         val recording = record ?: return
         record = null
         reader?.join(500)
         reader = null
         runCatching { recording.stop() }
         recording.release()
+    }
+
+    private fun peak(chunk: ByteArray, length: Int): Float {
+        var peak = 0
+        for (i in 0 until length - 1 step 2) {
+            val sample = (chunk[i].toInt() and 0xff) or (chunk[i + 1].toInt() shl 8)
+            peak = maxOf(peak, kotlin.math.abs(sample.toShort().toInt()))
+        }
+        return peak / 32_768f
     }
 
     private companion object {

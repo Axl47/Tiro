@@ -9,4 +9,6 @@
     <color name="mic_disabled">#FF8F8B84</color>
     <color name="mic_text">#FFFFFFFF</color>
     <color name="accent">#FFC2410C</color>
+    <color name="pill_background">#F01F1E1C</color>
+    <color name="pill_text">#FFFFFFFF</color>
 </resources>

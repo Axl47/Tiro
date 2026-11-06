@@ -1,6 +1,7 @@
 package dev.axl47.tiro
 
 import android.Manifest
+import android.accessibilityservice.AccessibilityServiceInfo
 import android.app.Activity
 import android.app.AlertDialog
 import android.content.ClipboardManager
@@ -11,12 +12,13 @@ import android.os.Looper
 import android.os.SystemClock
 import android.provider.Settings
 import android.view.View
+import android.view.accessibility.AccessibilityManager
 import android.view.inputmethod.InputMethodManager
 import android.widget.Button
 import android.widget.TextView
 import java.util.concurrent.Executors
 
-/** Setup: pair with a Mac, allow the microphone, turn on the keyboard, try it. */
+/** Setup: pair with a Mac, allow the microphone, turn on the volume key or the keyboard, try it. */
 class MainActivity : Activity() {
     private val work = Executors.newSingleThreadExecutor()
     private val main = Handler(Looper.getMainLooper())
@@ -35,6 +37,9 @@ class MainActivity : Activity() {
         }
         findViewById<Button>(R.id.enable_keyboard).setOnClickListener {
             startActivity(Intent(Settings.ACTION_INPUT_METHOD_SETTINGS))
+        }
+        findViewById<Button>(R.id.enable_volume_key).setOnClickListener {
+            startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
         }
         findViewById<Button>(R.id.choose_keyboard).setOnClickListener {
             getSystemService(InputMethodManager::class.java).showInputMethodPicker()
@@ -126,6 +131,11 @@ class MainActivity : Activity() {
             .any { it.packageName == packageName }
         findViewById<Button>(R.id.enable_keyboard).text =
             getString(if (enabled) R.string.keyboard_enabled else R.string.keyboard_enable)
+        val volumeKey = getSystemService(AccessibilityManager::class.java)
+            .getEnabledAccessibilityServiceList(AccessibilityServiceInfo.FEEDBACK_ALL_MASK)
+            .any { it.resolveInfo.serviceInfo.packageName == packageName }
+        findViewById<Button>(R.id.enable_volume_key).text =
+            getString(if (volumeKey) R.string.volume_key_enabled else R.string.volume_key_enable)
     }
 
     private fun show(message: String) {

@@ -48,6 +48,16 @@
         <Button android:id="@+id/enable_keyboard" style="@style/Wide" />
         <Button android:id="@+id/choose_keyboard" style="@style/Wide" android:text="@string/keyboard_choose" />
 
+        <TextView style="@style/Section" android:text="@string/section_volume_key" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
+            android:text="@string/volume_key_help" />
+
+        <Button android:id="@+id/enable_volume_key" style="@style/Wide" />
+
         <TextView style="@style/Section" android:text="@string/section_try" />
 
         <EditText

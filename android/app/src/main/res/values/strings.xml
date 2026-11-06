@@ -24,8 +24,15 @@
     <string name="keyboard_enabled">Tiro keyboard is on</string>
     <string name="keyboard_choose">Switch keyboards</string>
 
+    <string name="section_volume_key">Volume key</string>
+    <string name="volume_key_help">Keep your own keyboard. With a text field and the keyboard open, hold volume-down to talk and let go to finish. A quick press still changes the volume.</string>
+    <string name="volume_key_enable">Turn on volume-key dictation</string>
+    <string name="volume_key_enabled">Volume-key dictation is on</string>
+    <string name="volume_key_name">Tiro volume-key dictation</string>
+    <string name="volume_key_description">While a text field and a keyboard are on screen, hold volume-down to dictate through your Mac. Tiro reads only the focused field, to type the text into it, and leaves the volume key alone everywhere else.</string>
+
     <string name="section_try">Try it</string>
-    <string name="try_hint">Tap here, switch to Tiro voice, and hold the mic.</string>
+    <string name="try_hint">Tap here, then hold volume-down and speak. Or switch to Tiro voice and hold the mic.</string>
 
     <string name="mic_idle">🎙  Hold to talk</string>
     <string name="mic_listening">●  Listening</string>
@@ -44,5 +51,6 @@
     <string name="status_no_field">The text field went away.</string>
     <string name="status_unpaired">Open Tiro to pair with your Mac.</string>
     <string name="status_no_microphone">Open Tiro to allow the microphone.</string>
+    <string name="status_copied">Couldn\'t type here. Copied: paste it.</string>
     <string name="status_failed">Something went wrong.</string>
 </resources>

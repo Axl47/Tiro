@@ -12,6 +12,7 @@ changes with `benchmarks/cleanup/` before and after.
 
 - Building `native/scribe` needs Xcode's Metal Toolchain: `xcodebuild -downloadComponent MetalToolchain`.
 - `tiro-scribe` must be built with `xcodebuild`; `swift build` doesn't compile MLX's Metal shaders.
+- Android accessibility services (`VolumeKeyDictation`) unbind while agent-device or `uiautomator` holds UiAutomation, and turn off on a force stop (`open --relaunch`): close agent-device and press keys through a `uinput` device.
 - `/transcriptions` refuses a model without its `.verified.json` receipt (`409 model-not-ready`), even one dictation uses; a hand-copied model needs `POST /models/<id>/prepare` once.
 
 # Hex Agent Guide
