@@ -10,14 +10,17 @@
 //! phone ─TLS─▶ :47811 ─▶ allowlist + device token ─▶ 127.0.0.1 local API
 //!                        GET /health · POST /transcriptions · POST /cleanup
 //!                        POST /dictate (= /transcriptions, then /cleanup)
+//!                        POST /dictate/stream (live, over `/streams`)
 //! ```
 //!
 //! Pairing (`hex lan pair`) prints a `tiro://pair` link and its QR code:
 //! address, port, device token, and the certificate's SHA-256.
 
 mod dictate;
+mod loopback;
 mod pairing;
 mod proxy;
+mod stream;
 
 use rustls::pki_types::pem::PemObject;
 use std::net::TcpListener;

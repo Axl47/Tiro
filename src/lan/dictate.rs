@@ -3,9 +3,9 @@
 //! sends the transcript through the loopback `/cleanup` before answering, so a
 //! phone pays for one TLS connection and one round trip instead of two.
 
-use std::io::{Read, Write};
-use std::net::TcpStream;
 use std::time::Duration;
+
+use super::loopback::{Loopback, split};
 
 const CLEANUP_TIMEOUT: Duration = Duration::from_secs(30);
 
@@ -42,19 +42,15 @@ pub(super) fn answer(
 }
 
 /// Cleans `text` through the loopback API's `/cleanup`.
-pub(super) fn cleanup(port: u16, token: &str, text: &str) -> Option<String> {
+pub(super) fn cleanup(loopback: &Loopback, text: &str) -> Option<String> {
     let body = serde_json::json!({ "text": text }).to_string();
-    let mut upstream = TcpStream::connect(("127.0.0.1", port)).ok()?;
-    upstream.set_read_timeout(Some(CLEANUP_TIMEOUT)).ok()?;
-    write!(
-        upstream,
-        "POST /cleanup HTTP/1.1\r\nHost: 127.0.0.1\r\nAuthorization: Bearer {token}\r\nConnection: close\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n{body}",
-        body.len()
-    )
-    .ok()?;
-    let mut response = Vec::new();
-    upstream.read_to_end(&mut response).ok()?;
-    let (status, body) = split(&response)?;
+    let (status, answer) = loopback.request(
+        "POST",
+        "/cleanup",
+        &[],
+        Some(("application/json", body.as_bytes())),
+        CLEANUP_TIMEOUT,
+    )?;
     if status != 200 {
         tracing::info!(
             status,
@@ -62,25 +58,11 @@ pub(super) fn cleanup(port: u16, token: &str, text: &str) -> Option<String> {
         );
         return None;
     }
-    let value: serde_json::Value = serde_json::from_slice(body).ok()?;
+    let value: serde_json::Value = serde_json::from_slice(&answer).ok()?;
     Some(value.get("text")?.as_str()?.to_owned())
 }
 
-/// An HTTP response's status and body.
-fn split(response: &[u8]) -> Option<(u16, &[u8])> {
-    let end = response
-        .windows(4)
-        .position(|window| window == b"\r\n\r\n")?;
-    let status = std::str::from_utf8(&response[..end])
-        .ok()?
-        .split(' ')
-        .nth(1)?
-        .parse()
-        .ok()?;
-    Some((status, &response[end + 4..]))
-}
-
-fn json(status: u16, body: &serde_json::Value) -> Vec<u8> {
+pub(super) fn json(status: u16, body: &serde_json::Value) -> Vec<u8> {
     let body = body.to_string();
     format!(
         "HTTP/1.1 {status} OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",

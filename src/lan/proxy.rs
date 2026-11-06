@@ -1,7 +1,8 @@
 //! One LAN request: TLS, then the request head is checked against an
 //! allowlist and a paired device's token, rewritten for the loopback API
 //! (its token, `Connection: close`, and for audio the model dictation holds),
-//! and the body and the response are copied through.
+//! and the body and the response are copied through. `/dictate` and
+//! `/dictate/stream` do more on the way (`super::dictate`, `super::stream`).
 
 use std::io::{Read, Write};
 use std::net::{SocketAddr, TcpStream};
@@ -41,8 +42,17 @@ pub(super) struct Refusal(u16, &'static str);
 pub(super) struct Forward {
     pub path: String,
     pub content_length: usize,
-    /// `/dictate`: clean the transcript before answering.
-    pub then_cleanup: bool,
+    pub kind: Kind,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub(super) enum Kind {
+    /// Copied through as it is.
+    Plain,
+    /// `/dictate`: the transcript is cleaned up before answering.
+    ThenCleanup,
+    /// `/dictate/stream`: framed audio on this connection (`super::stream`).
+    Stream,
 }
 
 pub(super) fn parse_head(bytes: &[u8]) -> Option<Head> {
@@ -76,12 +86,20 @@ pub(super) fn route(
     selection: impl Fn() -> String,
 ) -> Result<Forward, Refusal> {
     let route = head.path.split('?').next().unwrap_or_default();
-    let (path, limit) = match (head.method.as_str(), route) {
-        ("GET", "/health") => ("/health".to_owned(), 0),
-        ("POST", "/cleanup") => ("/cleanup".to_owned(), MAX_TEXT_BYTES),
-        ("POST", "/transcriptions" | "/dictate") => {
-            (format!("/transcriptions?{}", selection()), MAX_AUDIO_BYTES)
-        }
+    let (path, limit, kind) = match (head.method.as_str(), route) {
+        ("GET", "/health") => ("/health".to_owned(), 0, Kind::Plain),
+        ("POST", "/cleanup") => ("/cleanup".to_owned(), MAX_TEXT_BYTES, Kind::Plain),
+        ("POST", "/transcriptions") => (
+            format!("/transcriptions?{}", selection()),
+            MAX_AUDIO_BYTES,
+            Kind::Plain,
+        ),
+        ("POST", "/dictate") => (
+            format!("/transcriptions?{}", selection()),
+            MAX_AUDIO_BYTES,
+            Kind::ThenCleanup,
+        ),
+        ("POST", "/dictate/stream") => ("/streams".to_owned(), 0, Kind::Stream),
         _ => return Err(Refusal(404, "not-found")),
     };
     let token = head
@@ -89,6 +107,13 @@ pub(super) fn route(
         .and_then(|value| value.strip_prefix("Bearer "));
     if token.and_then(&device).is_none() {
         return Err(Refusal(401, "not-paired"));
+    }
+    if kind == Kind::Stream {
+        return Ok(Forward {
+            path,
+            content_length: 0,
+            kind,
+        });
     }
     if head.header("transfer-encoding").is_some() {
         return Err(Refusal(411, "length-required"));
@@ -104,7 +129,7 @@ pub(super) fn route(
     Ok(Forward {
         path,
         content_length,
-        then_cleanup: route == "/dictate",
+        kind,
     })
 }
 
@@ -122,7 +147,7 @@ pub(super) fn upstream_head(head: &Head, forward: &Forward, loopback_token: &str
 }
 
 /// Sends TLS close_notify and flushes it.
-fn close(client: &mut rustls::StreamOwned<rustls::ServerConnection, TcpStream>) {
+fn close(client: &mut super::stream::Tls) {
     client.conn.send_close_notify();
     let _ = client.flush();
 }
@@ -154,17 +179,6 @@ fn read_head(stream: &mut impl Read) -> Option<(Vec<u8>, Vec<u8>)> {
             return None;
         }
     }
-}
-
-#[derive(serde::Deserialize)]
-struct Discovery {
-    port: u16,
-    token: String,
-}
-
-fn discovery() -> Option<Discovery> {
-    let path = crate::app_paths::support_dir().ok()?.join("local-api.json");
-    serde_json::from_slice(&std::fs::read(path).ok()?).ok()
 }
 
 fn selection() -> String {
@@ -208,9 +222,14 @@ pub(super) fn serve(stream: TcpStream, config: Arc<rustls::ServerConfig>, peer: 
             return refuse(&mut client, refusal);
         }
     };
-    let Some(discovery) = discovery() else {
+    let Some(discovery) = super::loopback::Loopback::discover() else {
         return refuse(&mut client, Refusal(503, "tiro-not-ready"));
     };
+    if forward.kind == Kind::Stream {
+        super::stream::serve(&mut client, body, discovery, peer);
+        close(&mut client);
+        return;
+    }
     let Ok(mut upstream) = TcpStream::connect(("127.0.0.1", discovery.port)) else {
         return refuse(&mut client, Refusal(503, "tiro-not-ready"));
     };
@@ -245,11 +264,11 @@ pub(super) fn serve(stream: TcpStream, config: Arc<rustls::ServerConfig>, peer: 
         close(&mut client);
         return;
     }
-    if forward.then_cleanup {
+    if forward.kind == Kind::ThenCleanup {
         let mut transcription = Vec::new();
         let _ = upstream.read_to_end(&mut transcription);
         let answer = super::dictate::answer(&transcription, |text| {
-            super::dictate::cleanup(discovery.port, &discovery.token, text)
+            super::dictate::cleanup(&discovery, text)
         });
         let _ = client.write_all(&answer);
         close(&mut client);
@@ -305,7 +324,19 @@ mod tests {
             forward.path,
             "/transcriptions?model=parakeet_unified_en&language=en"
         );
-        assert!(forward.then_cleanup);
+        assert_eq!(forward.kind, Kind::ThenCleanup);
+    }
+
+    #[test]
+    fn streams_need_a_device_but_no_length() {
+        let request = head("POST /dictate/stream HTTP/1.1\r\nAuthorization: Bearer good\r\n\r\n");
+        let forward = route(&request, paired, held).unwrap();
+        assert_eq!(forward.kind, Kind::Stream);
+        let stranger = head("POST /dictate/stream HTTP/1.1\r\nAuthorization: Bearer bad\r\n\r\n");
+        assert_eq!(
+            route(&stranger, paired, held),
+            Err(Refusal(401, "not-paired"))
+        );
     }
 
     #[test]
