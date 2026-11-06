@@ -23,7 +23,7 @@ class TiroKeyboard : InputMethodService() {
 
     private val work = Executors.newSingleThreadExecutor()
     private val main = Handler(Looper.getMainLooper())
-    private lateinit var recorder: Recorder
+    private lateinit var dictation: LiveDictation
     private var state = State.Idle
     private var pressedAt = 0L
     private var mic: TextView? = null
@@ -31,7 +31,9 @@ class TiroKeyboard : InputMethodService() {
 
     override fun onCreate() {
         super.onCreate()
-        recorder = Recorder(this)
+        dictation = LiveDictation(this) { text ->
+            main.post { if (state == State.Holding || state == State.Locked) status?.text = text }
+        }
     }
 
     override fun onCreateInputView(): View {
@@ -95,14 +97,14 @@ class TiroKeyboard : InputMethodService() {
     }
 
     override fun onDestroy() {
-        recorder.cancel()
+        dictation.cancel()
         work.shutdownNow()
         super.onDestroy()
     }
 
     private fun idleStatus(): String = when {
         PairingStore.load(this) == null -> getString(R.string.status_unpaired)
-        !recorder.hasPermission && !BuildConfig.DEBUG -> getString(R.string.status_no_microphone)
+        !dictation.hasPermission && !BuildConfig.DEBUG -> getString(R.string.status_no_microphone)
         else -> getString(R.string.status_idle)
     }
 
@@ -125,24 +127,23 @@ class TiroKeyboard : InputMethodService() {
     }
 
     private fun begin() {
-        if (PairingStore.load(this) == null) return render(getString(R.string.status_unpaired))
-        if (!recorder.start()) return render(getString(R.string.status_no_microphone))
+        val pairing = PairingStore.load(this) ?: return render(getString(R.string.status_unpaired))
+        if (!dictation.start(pairing)) return render(getString(R.string.status_no_microphone))
         pressedAt = SystemClock.uptimeMillis()
         state = State.Holding
-        PairingStore.load(this)?.let { pairing -> work.execute { runCatching { MacClient(pairing).warm() } } }
         render(getString(R.string.status_listening))
     }
 
     private fun cancel() {
-        recorder.cancel()
+        dictation.cancel()
         state = State.Idle
         render(idleStatus())
     }
 
     private fun finish() {
         val pairing = PairingStore.load(this)
-        val wav = recorder.stop()
-        if (pairing == null || wav == null) {
+        val take = dictation.stop()
+        if (pairing == null || take == null) {
             state = State.Idle
             return render(getString(R.string.status_nothing))
         }
@@ -150,7 +151,7 @@ class TiroKeyboard : InputMethodService() {
         render(getString(R.string.status_working))
         val released = SystemClock.elapsedRealtime()
         work.execute {
-            val outcome = runCatching { Dictation(MacClient(pairing)).run(wav) }
+            val outcome = runCatching { take.text(MacClient(pairing)) }
             val elapsed = SystemClock.elapsedRealtime() - released
             main.post { deliver(outcome, elapsed) }
         }

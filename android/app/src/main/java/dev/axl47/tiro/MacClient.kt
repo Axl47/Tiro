@@ -46,30 +46,23 @@ class MacClient(private val pairing: Pairing) {
     fun health(): String = JSONObject(request("GET", "/health", null, null)).getString("version")
 
     /**
-     * Call when a dictation starts, off the main thread: connects while you
-     * speak, so the dictation itself can resume this TLS session, and learns
-     * whether the Mac has `/dictate` (asked every time, so a Mac updated
-     * while this app runs is noticed). Throws [Failure] when the Mac can't be
-     * reached.
+     * Transcribed and cleaned up in one request; null from a Mac too old to
+     * have `/dictate`. Until a Mac has answered one, asks first with an empty
+     * request: an older Mac refuses unknown routes before reading the body,
+     * so a refused upload would arrive as a reset rather than its 404.
      */
-    fun warm() {
-        // Empty, so an older Mac's 404 arrives cleanly: it refuses unknown
-        // routes before reading a body, and a refused upload reads as a reset.
-        val supported = try {
-            request("POST", "/dictate", "audio/wav", ByteArray(0))
-            true
-        } catch (failure: Failure) {
-            if (failure.code == null) throw failure
-            failure.code != "not-found"
-        }
-        learned(pairing.fingerprint, supported)
-    }
-
-    /** Transcribed and cleaned up in one request; null from a Mac too old to have `/dictate`. */
     fun dictate(wav: ByteArray): String? {
-        if (hasDictate(pairing.fingerprint) == null) runCatching { warm() }
+        if (hasDictate(pairing.fingerprint) != true) learned(pairing.fingerprint, probe())
         if (hasDictate(pairing.fingerprint) == false) return null
         return JSONObject(request("POST", "/dictate", "audio/wav", wav)).getString("text")
+    }
+
+    private fun probe(): Boolean = try {
+        request("POST", "/dictate", "audio/wav", ByteArray(0))
+        true
+    } catch (failure: Failure) {
+        if (failure.code == null) throw failure
+        failure.code != "not-found"
     }
 
     fun transcribe(wav: ByteArray): String =
@@ -127,15 +120,15 @@ class MacClient(private val pairing: Pairing) {
         }
     }
 
-    private companion object {
+    companion object {
         private val contexts = mutableMapOf<String, SSLSocketFactory>()
         private val dictateRoutes = mutableMapOf<String, Boolean>()
 
         @Synchronized
-        fun hasDictate(fingerprint: String): Boolean? = dictateRoutes[fingerprint]
+        private fun hasDictate(fingerprint: String): Boolean? = dictateRoutes[fingerprint]
 
         @Synchronized
-        fun learned(fingerprint: String, supported: Boolean) {
+        private fun learned(fingerprint: String, supported: Boolean) {
             dictateRoutes[fingerprint] = supported
         }
 

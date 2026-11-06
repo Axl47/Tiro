@@ -32,6 +32,10 @@ class DictationPill(private val context: Context) {
     private val label = TextView(context).apply {
         setTextColor(context.getColor(R.color.pill_text))
         setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
+        // Live text keeps its newest words in view.
+        isSingleLine = true
+        ellipsize = android.text.TextUtils.TruncateAt.START
+        maxWidth = (context.resources.displayMetrics.widthPixels * 0.8f).toInt()
         accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE
     }
     private val view = LinearLayout(context).apply {
@@ -65,6 +69,11 @@ class DictationPill(private val context: Context) {
         dot.alpha = 1f
         this.level = level
         main.post(meter)
+    }
+
+    /** Provisional text while listening; the meter keeps running. */
+    fun live(text: String) {
+        if (shown && level != null) label.text = text
     }
 
     fun working(message: String) {

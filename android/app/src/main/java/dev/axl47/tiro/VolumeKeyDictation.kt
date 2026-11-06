@@ -29,15 +29,17 @@ class VolumeKeyDictation : AccessibilityService() {
 
     private val work = Executors.newSingleThreadExecutor()
     private val main = Handler(Looper.getMainLooper())
-    private lateinit var recorder: Recorder
+    private lateinit var dictation: LiveDictation
     private lateinit var pill: DictationPill
     private var state = State.Idle
     private var target: AccessibilityNodeInfo? = null
     private val holdReached = Runnable { begin() }
 
     override fun onServiceConnected() {
-        recorder = Recorder(this)
         pill = DictationPill(this)
+        dictation = LiveDictation(this) { text ->
+            main.post { if (state == State.Recording) pill.live(text) }
+        }
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) = Unit
@@ -47,7 +49,7 @@ class VolumeKeyDictation : AccessibilityService() {
     }
 
     override fun onDestroy() {
-        if (::recorder.isInitialized) recorder.cancel()
+        if (::dictation.isInitialized) dictation.cancel()
         if (::pill.isInitialized) pill.remove()
         work.shutdownNow()
         super.onDestroy()
@@ -101,20 +103,20 @@ class VolumeKeyDictation : AccessibilityService() {
     }
 
     private fun begin() {
-        if (!recorder.start()) {
+        val pairing = PairingStore.load(this)
+        if (pairing == null || !dictation.start(pairing)) {
             state = State.Idle
             target = null
             return pill.flash(getString(R.string.status_no_microphone))
         }
         state = State.Recording
         tick()
-        PairingStore.load(this)?.let { pairing -> work.execute { runCatching { MacClient(pairing).warm() } } }
-        pill.listening(getString(R.string.status_listening)) { recorder.level }
+        pill.listening(getString(R.string.status_listening)) { dictation.level }
     }
 
     private fun cancel() {
         main.removeCallbacks(holdReached)
-        recorder.cancel()
+        dictation.cancel()
         state = State.Idle
         target = null
         pill.remove()
@@ -122,8 +124,8 @@ class VolumeKeyDictation : AccessibilityService() {
 
     private fun finish() {
         val pairing = PairingStore.load(this)
-        val wav = recorder.stop()
-        if (pairing == null || wav == null) {
+        val take = dictation.stop()
+        if (pairing == null || take == null) {
             state = State.Idle
             target = null
             return pill.flash(getString(R.string.status_nothing))
@@ -133,7 +135,7 @@ class VolumeKeyDictation : AccessibilityService() {
         pill.working(getString(R.string.status_working))
         val released = SystemClock.elapsedRealtime()
         work.execute {
-            val outcome = runCatching { Dictation(MacClient(pairing)).run(wav) }
+            val outcome = runCatching { take.text(MacClient(pairing)) }
             val elapsed = SystemClock.elapsedRealtime() - released
             main.post { deliver(outcome, elapsed) }
         }

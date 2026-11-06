@@ -6,7 +6,8 @@ The phone records; the Mac does everything else. The phone runs no model.
 
 ```text
 volume key or Tiro keyboard ─TLS─▶ :47811 on the Mac (src/lan.rs)
-  hold the mic, speak        ├─ allowlist: GET /health, POST /dictate, POST /transcriptions, POST /cleanup
+  hold the mic, speak        ├─ allowlist: GET /health, POST /dictate/stream, POST /dictate,
+  │             POST /transcriptions, POST /cleanup
   let go                     ├─ paired device token (only its SHA-256 is stored)
                              └─▶ 127.0.0.1 local API: Parakeet, then the cleanup stage
   ◀──────────── clean text, typed into the focused field ───────────────┘
@@ -53,7 +54,17 @@ Mac.
   someone else's computer.
 - **The Mac picks the model.** `/transcriptions` always uses the model dictation holds,
   so a phone never makes the Mac load a second one.
-- **Whole clips, not streams, in one request.** The phone sends the recording to
+- **Streamed while you speak (`POST /dictate/stream`).** One TLS connection per
+  dictation, opened when recording starts. The phone sends framed 16 kHz s16le audio as
+  it records (`'A'`, then `'F'` to finish or `'C'` to cancel; a type byte and a
+  big-endian length), and the LAN front feeds the loopback `/streams` API with it, so
+  Parakeet transcribes during the dictation and only the tail and cleanup are left at
+  release (`src/lan/stream.rs`). It sends back newline-delimited JSON: live text from
+  the stream's events, which the pill shows and nothing types, then the cleaned final.
+  The phone keeps the whole recording, and when the stream can't deliver (an older Mac,
+  `409 stream-busy`, `503 engine-unavailable`, a dropped connection) it sends the clip
+  to `/dictate` instead (`LiveDictation`).
+- **Whole clips in one request, as the fallback.** The phone sends the recording to
   `POST /dictate` when you let go; the LAN front forwards it to the loopback
   `/transcriptions`, sends the transcript through the loopback `/cleanup`, and answers
   `{"text", "transcript"}` (`src/lan/dictate.rs`). A failed cleanup answers the raw
@@ -124,6 +135,11 @@ Mac.
   0.68 s against 0.82 s for the pair. The Mac's own work is most of it: about 0.3 s to
   transcribe and 0.23 s to clean up a 3.4 s clip. The same dictation measured 477 ms
   against the Mac build before, so compare runs only on one build in one sitting.
+- **Streaming's fallback, same phone (2026-11-05):** with the Mac's listener waiting for
+  setup, `/dictate/stream` was refused `503 engine-unavailable` (once read as a reset,
+  because the Mac closed while the phone was already sending audio), and three fixture
+  dictations typed through `/dictate`: 3.4 s cold, then 406 and 380 ms. Streaming itself
+  hasn't run end to end yet.
 - After `adb install -r`, One UI can leave the accessibility service stuck in "Binding"
   for minutes; turning it off and on again binds it at once.
 - **Not verified on the volume key:** a person speaking into the phone. The Mac's
@@ -136,6 +152,5 @@ Mac.
 
 ## Next
 
-- Stream audio while speaking (`/streams`) if stop-to-text over Wi-Fi feels slow.
 - mDNS discovery, so a changed Mac address doesn't need a new pairing.
 - Pairing from Tiro's window, not only the CLI.
