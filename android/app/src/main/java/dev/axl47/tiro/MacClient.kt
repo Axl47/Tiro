@@ -37,17 +37,42 @@ class PinnedTrust(private val fingerprint: String) : X509TrustManager {
 
 /** Tiro's LAN routes on the paired Mac (`src/lan.rs`). Blocking: call off the main thread. */
 class MacClient(private val pairing: Pairing) {
-    /** A message fit to show in the keyboard's status line. */
-    class Failure(message: String) : Exception(message)
+    /** A message fit to show in the keyboard's status line, and the Mac's error code. */
+    class Failure(message: String, val code: String? = null) : Exception(message)
 
-    private val sockets: SSLSocketFactory by lazy {
-        SSLContext.getInstance("TLS").apply {
-            init(null, arrayOf(PinnedTrust(pairing.fingerprint)), null)
-        }.socketFactory
-    }
+    private val sockets: SSLSocketFactory = sockets(pairing.fingerprint)
 
     /** Tiro's version on the Mac. */
     fun health(): String = JSONObject(request("GET", "/health", null, null)).getString("version")
+
+    /**
+     * Call when a dictation starts, off the main thread: connects while you
+     * speak, so the dictation itself can resume this TLS session, and learns
+     * whether the Mac has `/dictate`. Throws [Failure] when the Mac can't be reached.
+     */
+    fun warm() {
+        if (hasDictate(pairing.fingerprint) != null) {
+            health()
+            return
+        }
+        // Empty, so an older Mac's 404 arrives cleanly: it refuses unknown
+        // routes before reading a body, and a refused upload reads as a reset.
+        val supported = try {
+            request("POST", "/dictate", "audio/wav", ByteArray(0))
+            true
+        } catch (failure: Failure) {
+            if (failure.code == null) return // Unreachable: learn nothing.
+            failure.code != "not-found"
+        }
+        learned(pairing.fingerprint, supported)
+    }
+
+    /** Transcribed and cleaned up in one request; null from a Mac too old to have `/dictate`. */
+    fun dictate(wav: ByteArray): String? {
+        if (hasDictate(pairing.fingerprint) == null) warm()
+        if (hasDictate(pairing.fingerprint) == false) return null
+        return JSONObject(request("POST", "/dictate", "audio/wav", wav)).getString("text")
+    }
 
     fun transcribe(wav: ByteArray): String =
         JSONObject(request("POST", "/transcriptions", "audio/wav", wav)).getString("transcript")
@@ -78,7 +103,10 @@ class MacClient(private val pairing: Pairing) {
             val status = connection.responseCode
             val stream = if (status in 200..299) connection.inputStream else connection.errorStream
             val text = stream?.bufferedReader()?.use { it.readText() }.orEmpty()
-            if (status !in 200..299) throw Failure(describe(status, text))
+            if (status !in 200..299) {
+                val code = runCatching { JSONObject(text).getString("code") }.getOrNull()
+                throw Failure(describe(status, code), code)
+            }
             return text
         } catch (failure: Failure) {
             throw failure
@@ -91,14 +119,35 @@ class MacClient(private val pairing: Pairing) {
         }
     }
 
-    private fun describe(status: Int, body: String): String {
-        val code = runCatching { JSONObject(body).getString("code") }.getOrNull()
+    private fun describe(status: Int, code: String?): String {
         return when {
             status == HttpURLConnection.HTTP_UNAUTHORIZED -> "This phone isn't paired anymore. Pair again."
             code == "model-not-ready" -> "Your Mac's speech model isn't ready yet."
             code == "tiro-not-ready" -> "Tiro on your Mac is still starting."
             code == "queue-full" -> "Your Mac is busy. Try again."
             else -> "Your Mac answered ${code ?: status}."
+        }
+    }
+
+    private companion object {
+        private val contexts = mutableMapOf<String, SSLSocketFactory>()
+        private val dictateRoutes = mutableMapOf<String, Boolean>()
+
+        @Synchronized
+        fun hasDictate(fingerprint: String): Boolean? = dictateRoutes[fingerprint]
+
+        @Synchronized
+        fun learned(fingerprint: String, supported: Boolean) {
+            dictateRoutes[fingerprint] = supported
+        }
+
+        /**
+         * One TLS context per pinned Mac for the life of the process, so each
+         * dictation can resume the last TLS session instead of a full handshake.
+         */
+        @Synchronized
+        fun sockets(fingerprint: String): SSLSocketFactory = contexts.getOrPut(fingerprint) {
+            SSLContext.getInstance("TLS").apply { init(null, arrayOf(PinnedTrust(fingerprint)), null) }.socketFactory
         }
     }
 }

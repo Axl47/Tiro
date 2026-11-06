@@ -129,6 +129,7 @@ class TiroKeyboard : InputMethodService() {
         if (!recorder.start()) return render(getString(R.string.status_no_microphone))
         pressedAt = SystemClock.uptimeMillis()
         state = State.Holding
+        PairingStore.load(this)?.let { pairing -> work.execute { runCatching { MacClient(pairing).warm() } } }
         render(getString(R.string.status_listening))
     }
 
@@ -155,14 +156,14 @@ class TiroKeyboard : InputMethodService() {
         }
     }
 
-    private fun deliver(outcome: Result<Dictation.Result>, elapsedMs: Long) {
+    private fun deliver(outcome: Result<String>, elapsedMs: Long) {
         state = State.Idle
-        val result = outcome.getOrElse { error ->
+        val text = outcome.getOrElse { error ->
             return render(error.message ?: getString(R.string.status_failed))
         }
-        if (result.text.isBlank()) return render(getString(R.string.status_nothing))
+        if (text.isBlank()) return render(getString(R.string.status_nothing))
         val input = currentInputConnection ?: return render(getString(R.string.status_no_field))
-        input.commitText(TextJoin.joined(input.getTextBeforeCursor(1, 0), result.text), 1)
+        input.commitText(TextJoin.joined(input.getTextBeforeCursor(1, 0), text), 1)
         render(getString(R.string.status_done, elapsedMs / 1000.0))
     }
 

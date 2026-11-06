@@ -108,6 +108,7 @@ class VolumeKeyDictation : AccessibilityService() {
         }
         state = State.Recording
         tick()
+        PairingStore.load(this)?.let { pairing -> work.execute { runCatching { MacClient(pairing).warm() } } }
         pill.listening(getString(R.string.status_listening)) { recorder.level }
     }
 
@@ -138,20 +139,21 @@ class VolumeKeyDictation : AccessibilityService() {
         }
     }
 
-    private fun deliver(outcome: Result<Dictation.Result>, elapsedMs: Long) {
+    private fun deliver(outcome: Result<String>, elapsedMs: Long) {
         state = State.Idle
         val field = target?.takeIf { it.refresh() } ?: typingField()
         target = null
-        val result = outcome.getOrElse { error ->
+        val text = outcome.getOrElse { error ->
+            Log.i(TAG, "dictation failed after $elapsedMs ms: ${error.message}")
             return pill.flash(error.message ?: getString(R.string.status_failed))
         }
-        if (result.text.isBlank()) return pill.flash(getString(R.string.status_nothing))
-        if (field == null || !insert(field, result.text)) {
+        if (text.isBlank()) return pill.flash(getString(R.string.status_nothing))
+        if (field == null || !insert(field, text)) {
             // The take isn't lost: it's on the clipboard to paste.
-            copy(result.text)
+            copy(text)
             return pill.flash(getString(R.string.status_copied))
         }
-        Log.i(TAG, "typed ${result.text.length} chars in $elapsedMs ms")
+        Log.i(TAG, "typed ${text.length} chars in $elapsedMs ms")
         pill.flash(getString(R.string.status_done, elapsedMs / 1000.0))
     }
 

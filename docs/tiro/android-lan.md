@@ -6,7 +6,7 @@ The phone records; the Mac does everything else. The phone runs no model.
 
 ```text
 volume key or Tiro keyboard ─TLS─▶ :47811 on the Mac (src/lan.rs)
-  hold the mic, speak        ├─ allowlist: GET /health, POST /transcriptions, POST /cleanup
+  hold the mic, speak        ├─ allowlist: GET /health, POST /dictate, POST /transcriptions, POST /cleanup
   let go                     ├─ paired device token (only its SHA-256 is stored)
                              └─▶ 127.0.0.1 local API: Parakeet, then the cleanup stage
   ◀──────────── clean text, typed into the focused field ───────────────┘
@@ -53,9 +53,19 @@ Mac.
   someone else's computer.
 - **The Mac picks the model.** `/transcriptions` always uses the model dictation holds,
   so a phone never makes the Mac load a second one.
-- **Whole clips, not streams.** The phone sends the recording when you let go, then the
-  transcript to `/cleanup`. `/streams` could start transcribing while you speak, but it
-  needs many small requests; measure first.
+- **Whole clips, not streams, in one request.** The phone sends the recording to
+  `POST /dictate` when you let go; the LAN front forwards it to the loopback
+  `/transcriptions`, sends the transcript through the loopback `/cleanup`, and answers
+  `{"text", "transcript"}` (`src/lan/dictate.rs`). A failed cleanup answers the raw
+  transcript. `/streams` could start transcribing while you speak, but it needs many
+  small requests; measure first.
+- **Connect while you speak.** When a dictation starts, the phone sends an empty
+  `POST /dictate` on a background thread: it does the TLS handshake while you talk (one
+  TLS context per pinned Mac, so the dictation resumes that session) and learns whether
+  the Mac has `/dictate`. An older Mac answers `404 not-found`, and the phone then uses
+  `/transcriptions` followed by `/cleanup`. The probe is empty because an older Mac
+  refuses unknown routes before reading the body, and a refused upload reaches the
+  phone as a reset, not as the 404.
 
 - **Volume key over a second keyboard.** Samsung Keyboard's mic key only offers Samsung
   or Google voice input and takes no plug-ins, so dictation that keeps your keyboard
@@ -103,6 +113,14 @@ Mac.
     into a web page's search box in Firefox (0.7 s warm);
   - a 120 ms tap lowered the volume (the volume panel showed) and started nothing;
   - the pill appeared under the status bar, clear of the keyboard.
+- **One request, against a Mac without `/dictate` (2026-11-05, same phone):** the probe
+  learned the route is missing and three fixture dictations typed through the two
+  requests: 2.6 s (cleanup helper cold), then 0.49 s and 0.50 s, down from 0.72 s
+  before the shared TLS context and the early connection. `/dictate` itself is covered
+  by unit tests (`lan::dictate`, `lan::proxy`), not yet by a phone talking to an
+  installed build.
+- After `adb install -r`, One UI can leave the accessibility service stuck in "Binding"
+  for minutes; turning it off and on again binds it at once.
 - **Not verified on the volume key:** a person speaking into the phone. The Mac's
   `say` from across the desk recorded as audio the Mac heard no words in, while the
   same sentence as a clean file transcribed exactly. Also untested: the physical
@@ -113,8 +131,6 @@ Mac.
 
 ## Next
 
-- One `/dictate` route that transcribes and cleans up in one request, so a dictation
-  costs one TLS handshake instead of two.
 - Stream audio while speaking (`/streams`) if stop-to-text over Wi-Fi feels slow.
 - mDNS discovery, so a changed Mac address doesn't need a new pairing.
 - Pairing from Tiro's window, not only the CLI.
