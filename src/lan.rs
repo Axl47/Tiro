@@ -3,17 +3,19 @@
 //!
 //! Off unless Labs › LAN dictation is on. The loopback local API is never
 //! exposed: this listener speaks TLS with a self-signed certificate that
-//! paired phones pin, checks a per-device token, and forwards only three
+//! paired phones pin, checks a per-device token, and forwards only these
 //! routes to the loopback API, one request per connection:
 //!
 //! ```text
 //! phone ─TLS─▶ :47811 ─▶ allowlist + device token ─▶ 127.0.0.1 local API
 //!                        GET /health · POST /transcriptions · POST /cleanup
+//!                        POST /dictate (= /transcriptions, then /cleanup)
 //! ```
 //!
 //! Pairing (`hex lan pair`) prints a `tiro://pair` link and its QR code:
 //! address, port, device token, and the certificate's SHA-256.
 
+mod dictate;
 mod pairing;
 mod proxy;
 

@@ -41,6 +41,8 @@ pub(super) struct Refusal(u16, &'static str);
 pub(super) struct Forward {
     pub path: String,
     pub content_length: usize,
+    /// `/dictate`: clean the transcript before answering.
+    pub then_cleanup: bool,
 }
 
 pub(super) fn parse_head(bytes: &[u8]) -> Option<Head> {
@@ -77,7 +79,7 @@ pub(super) fn route(
     let (path, limit) = match (head.method.as_str(), route) {
         ("GET", "/health") => ("/health".to_owned(), 0),
         ("POST", "/cleanup") => ("/cleanup".to_owned(), MAX_TEXT_BYTES),
-        ("POST", "/transcriptions") => {
+        ("POST", "/transcriptions" | "/dictate") => {
             (format!("/transcriptions?{}", selection()), MAX_AUDIO_BYTES)
         }
         _ => return Err(Refusal(404, "not-found")),
@@ -102,6 +104,7 @@ pub(super) fn route(
     Ok(Forward {
         path,
         content_length,
+        then_cleanup: route == "/dictate",
     })
 }
 
@@ -242,6 +245,16 @@ pub(super) fn serve(stream: TcpStream, config: Arc<rustls::ServerConfig>, peer: 
         close(&mut client);
         return;
     }
+    if forward.then_cleanup {
+        let mut transcription = Vec::new();
+        let _ = upstream.read_to_end(&mut transcription);
+        let answer = super::dictate::answer(&transcription, |text| {
+            super::dictate::cleanup(discovery.port, &discovery.token, text)
+        });
+        let _ = client.write_all(&answer);
+        close(&mut client);
+        return;
+    }
     if let Err(error) = std::io::copy(&mut upstream, &mut client) {
         tracing::debug!(%error, %peer, "LAN response copy ended early");
     }
@@ -280,6 +293,19 @@ mod tests {
             "POST /transcriptions?model=parakeet_unified_en&language=en HTTP/1.1\r\nHost: 127.0.0.1\r\nAuthorization: Bearer loopback\r\nConnection: close\r\nContent-Length: 44\r\nContent-Type: audio/wav\r\n\r\n"
         );
         assert!(!upstream.contains("good"));
+    }
+
+    #[test]
+    fn dictate_transcribes_then_cleans_up() {
+        let request = head(
+            "POST /dictate HTTP/1.1\r\nAuthorization: Bearer good\r\nContent-Type: audio/wav\r\nContent-Length: 44\r\n\r\n",
+        );
+        let forward = route(&request, paired, held).unwrap();
+        assert_eq!(
+            forward.path,
+            "/transcriptions?model=parakeet_unified_en&language=en"
+        );
+        assert!(forward.then_cleanup);
     }
 
     #[test]
