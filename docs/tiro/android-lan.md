@@ -138,8 +138,15 @@ Mac.
 - **Streaming's fallback, same phone (2026-11-05):** with the Mac's listener waiting for
   setup, `/dictate/stream` was refused `503 engine-unavailable` (once read as a reset,
   because the Mac closed while the phone was already sending audio), and three fixture
-  dictations typed through `/dictate`: 3.4 s cold, then 406 and 380 ms. Streaming itself
-  hasn't run end to end yet.
+  dictations typed through `/dictate`: 3.4 s cold, then 406 and 380 ms.
+- **Streaming against the whole clip, same phone and Mac build (2026-11-05),** an 11 s
+  fixture clip played at real-time pace, held through the clip: streamed dictations typed
+  in a median 571 ms after release (565–573 ms warm, 6 runs), against 760 ms for the whole
+  clip through `/dictate` (738–1033 ms, 6 runs, a temporary build with streaming off).
+  The Mac's log (`LAN dictation stream finished`) puts the streamed time at ~170 ms to
+  finish the stream's tail and ~390 ms of cleanup, with each audio frame relayed in about
+  1 ms. Live text reached the pill about a second behind the audio. A person speaking
+  into the phone hasn't been tried.
 - After `adb install -r`, One UI can leave the accessibility service stuck in "Binding"
   for minutes; turning it off and on again binds it at once.
 - **Not verified on the volume key:** a person speaking into the phone. The Mac's

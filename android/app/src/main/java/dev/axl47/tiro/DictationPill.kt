@@ -46,7 +46,7 @@ class DictationPill(private val context: Context) {
             cornerRadius = dp(999).toFloat()
             setColor(context.getColor(R.color.pill_background))
         }
-        addView(dot, LinearLayout.LayoutParams(dp(10), dp(10)).apply { marginEnd = dp(10) })
+        addView(dot, LinearLayout.LayoutParams(dp(10), dp(10)).apply { marginEnd = dp(14) })
         addView(label)
     }
     private var shown = false
@@ -56,7 +56,7 @@ class DictationPill(private val context: Context) {
         override fun run() {
             val source = level ?: return
             // The dot swells with the voice, so you can see it's hearing you.
-            val scale = 1f + source().coerceIn(0f, 1f) * 4f
+            val scale = 1f + source().coerceIn(0f, 1f) * 1.4f
             dot.scaleX = dot.scaleX * 0.5f + scale * 0.5f
             dot.scaleY = dot.scaleX
             main.postDelayed(this, 50)

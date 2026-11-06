@@ -124,6 +124,8 @@ class LiveStream(private val pairing: Pairing, private val onLive: (String) -> U
     }
 
     private fun close() {
+        // Settles a stream closed on purpose, so its reader's error isn't logged.
+        final.cancel(false)
         runCatching { socket?.close() }
         writer.shutdown()
     }

@@ -142,6 +142,7 @@ pub(super) fn serve(client: &mut Tls, leftover: Vec<u8>, loopback: Loopback, pee
         loopback,
         id,
         owner,
+        timing: Default::default(),
     };
     if client
         .write_all(
@@ -173,6 +174,15 @@ struct Stream {
     loopback: Loopback,
     id: u64,
     owner: String,
+    timing: std::cell::RefCell<Timing>,
+}
+
+/// Where a stream's time went, logged once when it finishes.
+#[derive(Default)]
+struct Timing {
+    frames: u32,
+    relay: Duration,
+    slowest_relay: Duration,
 }
 
 impl Stream {
@@ -226,13 +236,19 @@ impl Stream {
     fn audio(&self, pcm: &[u8]) -> Result<(), Option<String>> {
         let path = format!("/streams/{}/audio", self.id);
         let headers = [("X-Hex-Stream-Token", self.owner.as_str())];
-        match self.loopback.request(
+        let started = Instant::now();
+        let answer = self.loopback.request(
             "POST",
             &path,
             &headers,
             Some(("application/octet-stream", pcm)),
             REQUEST,
-        ) {
+        );
+        let mut timing = self.timing.borrow_mut();
+        timing.frames += 1;
+        timing.relay += started.elapsed();
+        timing.slowest_relay = timing.slowest_relay.max(started.elapsed());
+        match answer {
             Some((204, _)) => Ok(()),
             Some((_, body)) => Err(Some(code(&body))),
             None => Err(Some("tiro-unreachable".to_owned())),
@@ -243,11 +259,14 @@ impl Stream {
     fn finish(&self, client: &mut Tls) {
         let path = format!("/streams/{}/finish", self.id);
         let headers = [("X-Hex-Stream-Token", self.owner.as_str())];
+        let started = Instant::now();
+        let mut finished = Duration::ZERO;
         let answer = match self.loopback.request("POST", &path, &headers, None, FINISH) {
             Some((200, body)) => serde_json::from_slice::<serde_json::Value>(&body)
                 .ok()
                 .and_then(|value| Some(value.get("text")?.as_str()?.trim().to_owned()))
                 .map(|transcript| {
+                    finished = started.elapsed();
                     let text = if transcript.is_empty() {
                         String::new()
                     } else {
@@ -263,6 +282,15 @@ impl Stream {
             None => serde_json::json!({ "type": "error", "code": "tiro-unreachable" }),
         };
         send(client, &answer);
+        let timing = self.timing.borrow();
+        tracing::info!(
+            frames = timing.frames,
+            relay_ms = timing.relay.as_millis() as u64,
+            slowest_relay_ms = timing.slowest_relay.as_millis() as u64,
+            finish_ms = finished.as_millis() as u64,
+            cleanup_ms = (started.elapsed() - finished).as_millis() as u64,
+            "LAN dictation stream finished"
+        );
     }
 
     fn cancel(&self) {
