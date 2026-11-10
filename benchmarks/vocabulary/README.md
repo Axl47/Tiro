@@ -27,8 +27,9 @@ python3 compare.py baseline.jsonl seeded.jsonl labels.json list.json
 boost, 6x stream feeding. 47 recordings had a reference from the message actually sent.
 
 - About half were sent word for word (23 of 47); 19 had a word changed.
-- WER against the sent text moved by less than 0.1 point. A vocabulary fixes a few
-  rare words, and they don't move an average.
+- WER against the sent text went from 7.01% to 6.82% (7 fewer errors in 3,854 words),
+  with 7 clips changed and no term written where it wasn't said. A vocabulary fixes a
+  few rare words, and they barely move an average.
 - Most gains came from words seen wrong in these same clips, with their misheard forms
   as "sounds like" spellings, so that result is optimistic.
 - Names that were never said change nothing, so a clean run says nothing about them.
