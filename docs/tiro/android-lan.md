@@ -96,7 +96,10 @@ Mac.
   waits 300 ms for a second press: one makes a double tap, which records hands-free
   until the next press of volume-down (the keyboard need not still show), and
   without one the first press is handed back as a volume change, so a lone volume
-  tap now lands 300 ms late. A hold starts recording at the threshold, with a haptic
+  tap now lands 300 ms late. Each press within 1 s of a volume change goes straight
+  to the system, so tapping the volume down never turns into a dictation. While
+  recording, Tiro holds exclusive transient audio focus: media apps pause and resume
+  when it stops (apps that ignore audio focus keep playing). A hold starts recording at the threshold, with a haptic
   tick, so a tap never turns the microphone on. The text is set into the field at its
   selection (`ACTION_SET_TEXT`), else pasted; if neither works it stays on the
   clipboard.

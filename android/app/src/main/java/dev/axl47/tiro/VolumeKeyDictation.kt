@@ -21,8 +21,10 @@ import java.util.concurrent.Executors
  * Dictation from any keyboard: while a text field and a keyboard are on screen,
  * hold volume-down to talk and let go to finish, as with the Mac's shortcut, or
  * double-tap it to talk hands-free and press it once more to finish. A single
- * quick press still lowers the volume, once the double-tap window has passed,
- * and away from a text field the key is never touched. The cleaned text is typed
+ * quick press still lowers the volume, once the double-tap window has passed;
+ * presses that follow it within a second lower it at once, so tapping to turn
+ * the volume down never starts a dictation. Away from a text field the key is
+ * never touched. The cleaned text is typed
  * into the field that was focused when the key first went down.
  */
 class VolumeKeyDictation : AccessibilityService() {
@@ -37,6 +39,8 @@ class VolumeKeyDictation : AccessibilityService() {
     private var target: AccessibilityNodeInfo? = null
     /** Whether the press now down is ours: its repeats and release are too. */
     private var ownsPress = false
+    /** Until when volume-down presses go straight to the system as volume changes. */
+    private var volumeStreakEnds = 0L
     private val holdReached = Runnable { begin(State.Recording) }
     private val tapExpired = Runnable { lowerVolume() }
 
@@ -73,6 +77,13 @@ class VolumeKeyDictation : AccessibilityService() {
     private fun down(event: KeyEvent): Boolean {
         // Held keys repeat; a press already taken keeps its repeats.
         if (event.repeatCount > 0) return ownsPress
+        // Presses right after a volume change are more of it, not a new double tap.
+        val now = SystemClock.uptimeMillis()
+        if (state == State.Idle && now < volumeStreakEnds) {
+            volumeStreakEnds = now + VOLUME_STREAK_MS
+            ownsPress = false
+            return false
+        }
         ownsPress = when (state) {
             State.Idle -> {
                 target = if (PairingStore.load(this) != null) typingField() else null
@@ -118,6 +129,7 @@ class VolumeKeyDictation : AccessibilityService() {
     private fun lowerVolume() {
         state = State.Idle
         target = null
+        volumeStreakEnds = SystemClock.uptimeMillis() + VOLUME_STREAK_MS
         getSystemService(AudioManager::class.java).adjustSuggestedStreamVolume(
             AudioManager.ADJUST_LOWER,
             AudioManager.USE_DEFAULT_STREAM_TYPE,
@@ -231,5 +243,8 @@ class VolumeKeyDictation : AccessibilityService() {
 
         /** A second press this soon after a quick one's release is a double tap. */
         const val DOUBLE_TAP_MS = 300L
+
+        /** After a volume change, presses this close to the last one change the volume too. */
+        const val VOLUME_STREAK_MS = 1_000L
     }
 }
