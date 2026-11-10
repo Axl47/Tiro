@@ -52,6 +52,13 @@ const TRANSLATIONS: &[(&str, &str)] = &[
     ("Summaries use {model}. If it isn't available, the meeting shows the error instead of trying another model", "Os resumos usam {model}. Se ele não estiver disponível, a reunião mostra o erro em vez de tentar outro modelo"),
     ("Empty: Hex tries its list of fast models in order and uses the first one OpenCode has", "Vazio: o Hex tenta sua lista de modelos rápidos em ordem e usa o primeiro que o OpenCode tiver"),
     ("Write it as provider/model, such as openai/gpt-5.4-mini. Until then, Hex tries its list of fast models", "Escreva como provedor/modelo, por exemplo openai/gpt-5.4-mini. Até lá, o Hex tenta sua lista de modelos rápidos"),
+    ("Your correction", "Sua correção"),
+    ("Correct", "Corrigir"),
+    ("Save corrections", "Guardar correções"),
+    (
+        "After pasting, read back only the text Tiro pasted, never password fields, and keep your edits beside it in History",
+        "Após colar, relê apenas o texto colado pelo Tiro, nunca campos de senha, e guarda suas edições ao lado no Histórico",
+    ),
     ("Keep recordings", "Manter gravações"),
     ("Keep the audio of dictations saved to History, so you can transcribe them again with another model", "Mantém o áudio dos ditados salvos no Histórico, para transcrevê-los de novo com outro modelo"),
     ("Saved recording", "Gravação salva"),

@@ -9,7 +9,7 @@
 use std::sync::mpsc::{Receiver, TryRecvError, channel};
 
 use rune::{El, TextEdit, Tx, col, row, text};
-use rune_kit::{Select, SelectAppearance, TextInput};
+use rune_kit::{Select, SelectAppearance, TextArea, TextInput};
 
 use super::controls::{ButtonKind, Paint, button};
 use super::list_detail::{self as ld, Item};
@@ -17,7 +17,10 @@ use super::lists::{error_panel, section_label};
 use super::{Menu, Ui};
 use crate::desktop::i18n::{event_age, tr, tr_fill, tr_named};
 use crate::history::stats::HistoryStats;
-use crate::history::{History, HistoryEntry, HistoryKind, HistoryRetention, Transcript};
+use crate::history::{
+    Correction, CorrectionSource, CorrectionStatus, History, HistoryEntry, HistoryKind,
+    HistoryRetention, Transcript,
+};
 use crate::transcription::models::TranscriptionModelId;
 
 #[derive(Default)]
@@ -43,6 +46,8 @@ pub(super) struct HistoryPane {
     pub(super) pending: Option<Pending>,
     /// The version whose Copy was pressed last: entry and index.
     pub(super) version_copied: Option<(u64, usize)>,
+    /// The entry being corrected by hand, and its text so far.
+    pub(super) correcting: Option<(u64, TextEdit)>,
 }
 
 /// Transcribe again's chosen model and the language for this one run.
@@ -167,6 +172,8 @@ impl HistoryPane {
                     kind,
                     raw_text: raw.into(),
                     final_text: final_text.into(),
+                    corrected_text: None,
+                    correction: None,
                     application: app.map(str::to_owned),
                     processing: None,
                     audio_ms: 4200,
@@ -396,6 +403,43 @@ fn replace(ui: &mut Ui, id: u64) {
         entry.replace(transcript, crate::history::now_ms());
         ui.history.again = None;
     }
+}
+
+/// Saves the hand correction being typed for entry `id`: the label a
+/// recording trains on, and the one that works on every platform.
+fn save_correction(ui: &mut Ui, id: u64) {
+    let Some(text) = ui
+        .history
+        .correcting
+        .as_ref()
+        .filter(|(editing, _)| *editing == id)
+        .map(|(_, edit)| edit.text.trim().to_owned())
+        .filter(|text| !text.is_empty())
+    else {
+        return;
+    };
+    let final_text = ui.history.entry(id).map(|entry| entry.final_text.clone());
+    let status = if final_text.as_deref() == Some(text.as_str()) {
+        CorrectionStatus::Unchanged
+    } else {
+        CorrectionStatus::Edited
+    };
+    if let Some(store) = &ui.history.store
+        && let Err(error) = store.correct(
+            id,
+            Correction {
+                text: Some(text),
+                status,
+                source: CorrectionSource::History,
+                captured_ms: crate::history::now_ms(),
+            },
+        )
+    {
+        ui.history.error = Some(error.to_string());
+        return;
+    }
+    ui.history.correcting = None;
+    ui.history.reload();
 }
 
 /// Brings entry `id`'s version `index` back as its text.
@@ -710,6 +754,73 @@ fn detail(ui: &Ui, p: Paint, layer: &mut Vec<El>) -> El {
             .color(p.text())
             .wrap(),
     );
+    match pane
+        .correcting
+        .as_ref()
+        .filter(|(editing, _)| *editing == id)
+    {
+        Some((_, edit)) => {
+            body = body.child(
+                col()
+                    .key("correcting")
+                    .gap(8.0)
+                    .child(section_label(p, "label", tr("Your correction")))
+                    .child(
+                        TextArea::new(edit)
+                            .rows(4)
+                            .width(None)
+                            .on_edit(|ui: &mut Ui| {
+                                &mut ui
+                                    .history
+                                    .correcting
+                                    .get_or_insert_with(|| (0, TextEdit::new(String::new())))
+                                    .1
+                            })
+                            .build(p.k)
+                            .key("correction-text"),
+                    )
+                    .child(
+                        row()
+                            .gap(8.0)
+                            .child(button(
+                                p,
+                                "save",
+                                tr("Save"),
+                                ButtonKind::Secondary,
+                                move |ui: &mut Ui, _| save_correction(ui, id),
+                            ))
+                            .child(button(
+                                p,
+                                "cancel",
+                                tr("Cancel"),
+                                ButtonKind::Secondary,
+                                |ui: &mut Ui, _| ui.history.correcting = None,
+                            )),
+                    ),
+            );
+        }
+        None => {
+            if let Some(corrected) = entry
+                .corrected_text
+                .as_ref()
+                .filter(|corrected| corrected.trim() != entry.final_text.trim())
+            {
+                body = body.child(
+                    col()
+                        .key("corrected")
+                        .gap(6.0)
+                        .child(section_label(p, "label", tr("Your correction")))
+                        .child(
+                            text(corrected.clone())
+                                .key("value")
+                                .font(p.k.ty.body)
+                                .color(p.text())
+                                .wrap(),
+                        ),
+                );
+            }
+        }
+    }
     if entry.raw_text.trim() != entry.final_text.trim() {
         body = body.child(
             col()
@@ -741,6 +852,23 @@ fn detail(ui: &Ui, p: Paint, layer: &mut Vec<El>) -> El {
             vec![ld::meta_text(p, &event_age(entry.timestamp_ms))],
             vec![
                 copy_action(ui, p, id, false),
+                ld::ghost_icon(
+                    p,
+                    "history-correct",
+                    ld::EDIT_ICON,
+                    tr("Correct"),
+                    move |ui: &mut Ui, _| {
+                        let current = ui.history.entry(id).map(|entry| {
+                            entry
+                                .corrected_text
+                                .clone()
+                                .unwrap_or_else(|| entry.final_text.clone())
+                        });
+                        if let Some(current) = current {
+                            ui.history.correcting = Some((id, TextEdit::new(current)));
+                        }
+                    },
+                ),
                 ld::ghost_icon(
                     p,
                     "history-delete",

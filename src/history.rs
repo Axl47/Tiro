@@ -18,6 +18,8 @@ use std::time::{Duration, SystemTime};
 use serde::{Deserialize, Serialize};
 
 mod archive;
+#[cfg(target_os = "macos")]
+pub(crate) mod corrections;
 pub mod recordings;
 pub mod stats;
 pub mod versions;
@@ -99,6 +101,48 @@ impl HistoryKind {
     }
 }
 
+/// Where a dictation's correction came from.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CorrectionSource {
+    /// Read back from the field it was pasted into.
+    PastedField,
+    /// Typed by the person in History, the ground truth when both exist.
+    History,
+}
+
+/// What happened when Tiro looked for a dictation's correction.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CorrectionStatus {
+    /// Seen, and left as pasted.
+    Unchanged,
+    /// Seen, and changed.
+    Edited,
+    /// A password field or secure input: nothing was read.
+    Secure,
+    /// The field doesn't expose its text.
+    Unreadable,
+}
+
+/// How an entry's correction was found.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct CorrectionRecord {
+    pub status: CorrectionStatus,
+    pub source: CorrectionSource,
+    pub captured_ms: u64,
+}
+
+/// A settled correction: `text` is set when the text could be seen.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct Correction {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub text: Option<String>,
+    pub status: CorrectionStatus,
+    pub source: CorrectionSource,
+    pub captured_ms: u64,
+}
+
 /// Bounded record of the post-processing that shaped the final text.
 pub type HistoryProcessing = crate::desktop::events::DictationProcessing;
 
@@ -112,6 +156,13 @@ pub struct HistoryEntry {
     pub raw_text: String,
     /// Text that was actually inserted.
     pub final_text: String,
+    /// The text after the person's changes, when Tiro could see them: the
+    /// label a recording needs to become a training example.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub corrected_text: Option<String>,
+    /// How [`Self::corrected_text`] was found, or why it wasn't.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub correction: Option<CorrectionRecord>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub application: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -154,6 +205,7 @@ impl HistoryEntry {
     fn text_bytes(&self) -> usize {
         self.raw_text.len()
             + self.final_text.len()
+            + self.corrected_text.as_ref().map_or(0, String::len)
             + self
                 .versions
                 .iter()
@@ -366,6 +418,8 @@ impl HistoryStore {
             kind: draft.kind,
             raw_text: truncated(&draft.raw_text, MAX_TEXT_BYTES),
             final_text: truncated(&draft.final_text, MAX_TEXT_BYTES),
+            corrected_text: None,
+            correction: None,
             application: draft
                 .application
                 .map(|application| truncated(&application, MAX_LABEL_BYTES)),
@@ -428,6 +482,38 @@ impl HistoryStore {
     /// there was one.
     pub fn restore_version(&mut self, id: u64, index: usize) -> io::Result<bool> {
         self.change(id, |entry| entry.restore(index))
+    }
+
+    /// Saves what became of entry `id` after pasting. A correction typed in
+    /// History is never overwritten by one read from a field. An archived
+    /// entry's JSON goes to the box again, so the label reaches the recording.
+    pub fn correct(&mut self, id: u64, correction: Correction) -> io::Result<bool> {
+        let saved = self.change(id, |entry| {
+            let typed = entry
+                .correction
+                .is_some_and(|known| known.source == CorrectionSource::History);
+            if typed && correction.source != CorrectionSource::History {
+                return false;
+            }
+            entry.corrected_text = correction
+                .text
+                .as_deref()
+                .map(|text| truncated(text, MAX_TEXT_BYTES));
+            entry.correction = Some(CorrectionRecord {
+                status: correction.status,
+                source: correction.source,
+                captured_ms: correction.captured_ms,
+            });
+            true
+        })?;
+        if saved
+            && let Some(archive) = self.archive
+            && let Some(entry) = self.entries.iter().find(|entry| entry.id == id)
+            && entry.has_recording()
+        {
+            archive.update(entry);
+        }
+        Ok(saved)
     }
 
     /// Changes entry `id` and saves; a failed save keeps it as it was.
@@ -689,6 +775,10 @@ impl History {
 
     pub fn clear(&self) -> io::Result<()> {
         self.synced().clear()
+    }
+
+    pub fn correct(&self, id: u64, correction: Correction) -> io::Result<bool> {
+        self.synced().correct(id, correction)
     }
 
     pub fn replace_text(&self, id: u64, transcript: Transcript) -> io::Result<bool> {

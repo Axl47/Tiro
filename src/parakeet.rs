@@ -994,7 +994,17 @@ fn finish_output(
                         *last_transcript = Some(completed.text.clone());
                     }
                     if let Some(history) = history {
-                        record_history(history, target, &mut completed);
+                        let id = record_history(history, target, &mut completed);
+                        // Tiro: follow what becomes of a real paste.
+                        if let Some(id) = id.filter(|_| {
+                            matches!(
+                                target,
+                                TranscriptionTarget::Paste | TranscriptionTarget::RawPaste
+                            ) && !crate::labs::copy_only()
+                        }) && let Some(pid) = crate::dictation::context::frontmost_pid()
+                        {
+                            crate::history::corrections::watch(history, id, &completed.text, pid);
+                        }
                     }
                 }
                 tracing::info!(
@@ -1060,12 +1070,12 @@ fn record_history(
     history: &History,
     target: TranscriptionTarget,
     completed: &mut CompletedTranscript,
-) {
+) -> Option<u64> {
     let kind = match target {
         TranscriptionTarget::Paste => HistoryKind::Dictation,
         TranscriptionTarget::RawPaste => HistoryKind::Raw,
         TranscriptionTarget::Print | TranscriptionTarget::RawPrint => HistoryKind::Printed,
-        TranscriptionTarget::Service => return,
+        TranscriptionTarget::Service => return None,
     };
     let draft = HistoryDraft {
         kind,
@@ -1079,9 +1089,11 @@ fn record_history(
         recording: completed.recording.take(),
         model: crate::history::dictation_model(),
     };
-    if let Err(error) = history.record(draft) {
-        tracing::warn!(%error, "could not record dictation history");
-    }
+    history
+        .record(draft)
+        .inspect_err(|error| tracing::warn!(%error, "could not record dictation history"))
+        .ok()
+        .flatten()
 }
 
 fn paste_meeting_delta(

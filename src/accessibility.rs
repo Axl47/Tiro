@@ -7,6 +7,8 @@ type AxUiElementRef = *const c_void;
 
 const CF_STRING_ENCODING_UTF8: u32 = 0x0800_0100;
 const MESSAGING_TIMEOUT_SECS: f32 = 0.25;
+/// `kCFNumberSInt64Type`.
+const CF_NUMBER_SINT64: isize = 4;
 
 #[link(name = "ApplicationServices", kind = "framework")]
 unsafe extern "C" {
@@ -31,6 +33,11 @@ unsafe extern "C" {
     fn AXValueGetTypeID() -> usize;
     fn AXValueCreate(value_type: u32, value: *const c_void) -> CfTypeRef;
     fn AXValueGetValue(value: CfTypeRef, value_type: u32, value_out: *mut c_void) -> bool;
+}
+
+#[link(name = "Carbon", kind = "framework")]
+unsafe extern "C" {
+    fn IsSecureEventInputEnabled() -> u8;
 }
 
 /// `kAXValueTypeCFRange`.
@@ -66,10 +73,13 @@ unsafe extern "C" {
     fn CFRelease(value: CfTypeRef);
     fn CFRetain(value: CfTypeRef) -> CfTypeRef;
     fn CFEqual(left: CfTypeRef, right: CfTypeRef) -> u8;
+    fn CFNumberGetTypeID() -> usize;
+    fn CFNumberGetValue(number: CfTypeRef, kind: isize, value: *mut c_void) -> u8;
     fn CFArrayGetTypeID() -> usize;
     fn CFArrayGetCount(array: CfTypeRef) -> isize;
     fn CFArrayGetValueAtIndex(array: CfTypeRef, index: isize) -> CfTypeRef;
     static kCFBooleanTrue: CfTypeRef;
+    static kCFBooleanFalse: CfTypeRef;
 }
 
 pub fn focused_window_title(pid: i32) -> Option<String> {
@@ -164,6 +174,45 @@ fn request_web_accessibility(pid: i32, application: &CfObject) {
     }
 }
 
+/// Apps switched into enhanced accessibility by [`focused_field`], and not
+/// yet switched back.
+static ENHANCED: std::sync::Mutex<Vec<i32>> = std::sync::Mutex::new(Vec::new());
+
+/// Chrome ignores `AXManualAccessibility`, Electron's switch, and exposes its
+/// focused field only with the flag VoiceOver sets. Only an app that shows no
+/// focused element is asked; native apps always have one.
+fn request_enhanced_accessibility(pid: i32, application: &CfObject) {
+    let mut enhanced = ENHANCED.lock().unwrap_or_else(|error| error.into_inner());
+    if !enhanced.contains(&pid) && set_enhanced(application, unsafe { kCFBooleanTrue }) {
+        enhanced.push(pid);
+    }
+}
+
+/// Puts back every app [`request_enhanced_accessibility`] changed, once no
+/// field is being followed.
+pub fn release_enhanced_accessibility() {
+    let mut enhanced = ENHANCED.lock().unwrap_or_else(|error| error.into_inner());
+    for pid in enhanced.drain(..) {
+        // SAFETY: AXUIElementCreateApplication returns a retained Core Foundation object.
+        if let Some(application) = bounded_element(unsafe { AXUIElementCreateApplication(pid) }) {
+            set_enhanced(&application, unsafe { kCFBooleanFalse });
+        }
+    }
+}
+
+/// Whether the flag took. Chrome reports `kAXErrorCannotComplete` (-25204)
+/// or a no-value error even when it did, so only an app without the
+/// attribute counts as refusing.
+fn set_enhanced(application: &CfObject, value: CfTypeRef) -> bool {
+    const ATTRIBUTE_UNSUPPORTED: i32 = -25205;
+    let Some(attribute) = cf_string_literal(c"AXEnhancedUserInterface").map(CfObject) else {
+        return false;
+    };
+    // SAFETY: A live application element, a CFString name, and a shared CFBoolean.
+    let status = unsafe { AXUIElementSetAttributeValue(application.0, attribute.0, value) };
+    status != ATTRIBUTE_UNSUPPORTED
+}
+
 /// An element as `browser_page` walks it.
 struct Element(CfObject);
 
@@ -231,6 +280,98 @@ pub fn char_before_caret(pid: i32) -> Option<char> {
         };
         copy_string_for_range(&focused, range)?.chars().next_back()
     })
+}
+
+/// What a field shows at one moment, without any of its text.
+pub enum FieldReading {
+    /// The element no longer answers.
+    Gone,
+    /// A password field; it must not be read.
+    Secure,
+    /// macOS has secure input on, perhaps for another app's password field.
+    SecureInputActive,
+    /// Its length and caret, in UTF-16 units.
+    Text { length: usize, caret: usize },
+}
+
+/// The text field an application has focused, read range by range. Ask for
+/// [`FocusedField::reading`] before every read: it is what keeps password
+/// fields closed. Used only on the correction watcher's own thread.
+pub struct FocusedField(CfObject);
+
+// SAFETY: AXUIElements are immutable handles that are safe to message from
+// any thread, and each is used from one thread at a time.
+unsafe impl Send for FocusedField {}
+
+/// The application's focused text field; `None` for anything else, or while
+/// a Chromium app is still building the tree this asks it for.
+pub fn focused_field(pid: i32) -> Option<FocusedField> {
+    // SAFETY: AXUIElementCreateApplication returns a retained Core Foundation object.
+    let application = bounded_element(unsafe { AXUIElementCreateApplication(pid) })?;
+    request_web_accessibility(pid, &application);
+    let focused = copy_element(&application, c"AXFocusedUIElement").or_else(|| {
+        request_enhanced_accessibility(pid, &application);
+        None
+    })?;
+    let role = copy_string(&focused, c"AXRole")?;
+    matches!(
+        role.as_str(),
+        "AXTextArea" | "AXTextField" | "AXComboBox" | "AXSecureTextField"
+    )
+    .then_some(FocusedField(focused))
+}
+
+impl FocusedField {
+    pub fn same(&self, other: &Self) -> bool {
+        // SAFETY: Both are live AXUIElements.
+        unsafe { CFEqual(self.0.0, other.0.0) != 0 }
+    }
+
+    pub fn reading(&self) -> FieldReading {
+        let is_secure = |name: &CStr| {
+            copy_string(&self.0, name).is_some_and(|value| value == "AXSecureTextField")
+        };
+        if is_secure(c"AXRole") || is_secure(c"AXSubrole") {
+            return FieldReading::Secure;
+        }
+        // SAFETY: Takes no arguments and only reports process-wide state.
+        if unsafe { IsSecureEventInputEnabled() } != 0 {
+            return FieldReading::SecureInputActive;
+        }
+        let Some(length) = copy_count(&self.0, c"AXNumberOfCharacters") else {
+            return FieldReading::Gone;
+        };
+        let Some(selection) = copy_range(&self.0, c"AXSelectedTextRange") else {
+            return FieldReading::Gone;
+        };
+        FieldReading::Text {
+            length,
+            caret: selection.location.max(0) as usize + selection.length.max(0) as usize,
+        }
+    }
+
+    /// The characters in `range`, and nothing around them.
+    pub fn text(&self, range: std::ops::Range<usize>) -> Option<String> {
+        copy_string_for_range(
+            &self.0,
+            CfRange {
+                location: range.start as isize,
+                length: range.len() as isize,
+            },
+        )
+    }
+}
+
+fn copy_count(element: &CfObject, name: &CStr) -> Option<usize> {
+    let value = copy_attribute(element, name)?;
+    if unsafe { CFGetTypeID(value.0) } != unsafe { CFNumberGetTypeID() } {
+        return None;
+    }
+    let mut count = 0_i64;
+    // SAFETY: `value` is a CFNumber and `count` matches kCFNumberSInt64Type.
+    let read =
+        unsafe { CFNumberGetValue(value.0, CF_NUMBER_SINT64, (&mut count as *mut i64).cast()) };
+    (read != 0).then_some(count.max(0) as usize)
 }
 
 fn copy_range(element: &CfObject, name: &CStr) -> Option<CfRange> {

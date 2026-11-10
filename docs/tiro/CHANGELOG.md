@@ -18,6 +18,15 @@
   to the Storage Box (`tiro-box:recordings/YYYY/MM/`), queueing it while the box is
   unreachable.
 
+- Labs › Save corrections, on by default: after a dictation pastes on macOS, Tiro
+  follows only the text it pasted and saves what you changed as `corrected_text`,
+  beside `raw_text` and `final_text`. Password fields are never read.
+- A settled correction also reaches the Storage Box, in that recording's JSON.
+- History has a Correct button for typing a dictation's right text by hand, on every
+  platform; what you type outranks anything read back from a field.
+- Smart spacing now works in T3 Code and other Electron apps, because Tiro asks them
+  for their accessibility tree while following a paste.
+
 ### Changed
 
 - Keep recordings holds at most 64 MiB of audio on the Mac (was 512 MiB), as a

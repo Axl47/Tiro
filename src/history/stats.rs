@@ -170,6 +170,8 @@ mod tests {
             kind: HistoryKind::Dictation,
             raw_text: raw.into(),
             final_text: final_text.into(),
+            corrected_text: None,
+            correction: None,
             application: app.map(str::to_owned),
             processing: None,
             audio_ms,

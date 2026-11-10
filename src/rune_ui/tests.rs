@@ -1303,6 +1303,72 @@ fn history_search_without_matches_says_so() {
 }
 
 #[test]
+fn a_correction_typed_in_history_is_saved_beside_the_text() {
+    use crate::history::{
+        Correction, CorrectionSource, CorrectionStatus, History, HistoryDraft, HistoryKind,
+        HistoryRetention, HistoryStore,
+    };
+    let directory =
+        std::env::temp_dir().join(format!("hex-history-correct-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&directory);
+    std::fs::create_dir_all(&directory).unwrap();
+    let store = HistoryStore::open(directory.join("history.json"), HistoryRetention::Week, 0);
+    let history = History::new(store);
+    let id = history
+        .record(HistoryDraft {
+            kind: HistoryKind::Dictation,
+            raw_text: "fix the pixie importer".into(),
+            final_text: "Fix the Pixie importer.".into(),
+            application: None,
+            processing: None,
+            audio_ms: 900,
+            inference_ms: 80,
+            total_ms: 200,
+            recording: None,
+            model: None,
+        })
+        .unwrap()
+        .unwrap();
+    let mut rt = runtime("history-correct", true, PANE_SIZE);
+    rt.state.history = history::HistoryPane::shared(Some(history.clone()));
+    rt.state.history.reload();
+    rt.state.history.selected = Some(id);
+    rt.invalidate();
+    settle(&mut rt);
+
+    tap(&mut rt, "history-correct");
+    settle(&mut rt);
+    tap(&mut rt, "correction-text");
+    rt.paste(" Now with Pixiv.");
+    settle(&mut rt);
+    tap(&mut rt, "correction-save");
+    settle(&mut rt);
+
+    let entry = rt.state.history.entries[0].clone();
+    assert_eq!(
+        entry.corrected_text.as_deref(),
+        Some("Fix the Pixie importer. Now with Pixiv.")
+    );
+    assert_eq!(entry.final_text, "Fix the Pixie importer.");
+    assert_eq!(entry.correction.unwrap().source, CorrectionSource::History);
+
+    // What you typed outranks anything read back from a field later.
+    let read_back = Correction {
+        text: Some("something the watcher saw".into()),
+        status: CorrectionStatus::Edited,
+        source: CorrectionSource::PastedField,
+        captured_ms: 1,
+    };
+    assert!(!history.correct(id, read_back).unwrap());
+    rt.state.history.reload();
+    assert_eq!(
+        rt.state.history.entries[0].corrected_text.as_deref(),
+        Some("Fix the Pixie importer. Now with Pixiv.")
+    );
+    let _ = std::fs::remove_dir_all(&directory);
+}
+
+#[test]
 fn transcribe_again_offers_a_language_only_for_models_that_take_one() {
     use crate::transcription::models::{AUTO_LANGUAGE, TranscriptionModelId};
     let whisper = history::language_choices(TranscriptionModelId::WhisperLargeV3Turbo).unwrap();

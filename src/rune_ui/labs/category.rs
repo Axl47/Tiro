@@ -98,6 +98,7 @@ impl Category {
             | Feature::VocabularyBiasing
             | Feature::PauseBrowser
             | Feature::KeepRecordings
+            | Feature::SaveCorrections
             | Feature::OutputFixes
             | Feature::HistoryStats
             | Feature::SkipPauses => Self::Dictation,
@@ -172,6 +173,7 @@ impl Place {
             | Feature::FillerWords
             | Feature::ScribeCleanup
             | Feature::LanDictation
+            | Feature::SaveCorrections
             | Feature::KeepOnClipboard
             | Feature::CopyOnly
             | Feature::SkipPauses

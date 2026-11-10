@@ -48,6 +48,13 @@ const TRANSLATIONS: &[(&str, &str)] = &[
     ("Summaries use {model}. If it isn't available, the meeting shows the error instead of trying another model", "Сводки используют {model}. Если она недоступна, встреча покажет ошибку, а не попробует другую модель"),
     ("Empty: Hex tries its list of fast models in order and uses the first one OpenCode has", "Пусто: Hex по очереди пробует свой список быстрых моделей и использует первую, которая есть в OpenCode"),
     ("Write it as provider/model, such as openai/gpt-5.4-mini. Until then, Hex tries its list of fast models", "Укажите в виде провайдер/модель, например openai/gpt-5.4-mini. До тех пор Hex пробует свой список быстрых моделей"),
+    ("Your correction", "Ваше исправление"),
+    ("Correct", "Исправить"),
+    ("Save corrections", "Сохранять исправления"),
+    (
+        "After pasting, read back only the text Tiro pasted, never password fields, and keep your edits beside it in History",
+        "После вставки считывает только текст, вставленный Tiro, никогда поля паролей, и сохраняет ваши правки рядом в истории",
+    ),
     ("Keep recordings", "Сохранять записи"),
     ("Keep the audio of dictations saved to History, so you can transcribe them again with another model", "Сохраняет звук диктовок из Истории, чтобы их можно было распознать заново другой моделью"),
     ("Saved recording", "Сохранённая запись"),
