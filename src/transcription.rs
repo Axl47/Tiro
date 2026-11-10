@@ -25,6 +25,8 @@ pub(crate) mod models;
 pub(crate) mod pause_segmenter;
 #[cfg(any(target_os = "macos", target_os = "windows", test))]
 pub(crate) mod preparation;
+#[cfg(target_os = "macos")]
+pub(crate) mod replay;
 pub(crate) mod service;
 pub(crate) mod speech_detector;
 pub(crate) mod stream;
@@ -161,7 +163,6 @@ fn trailing_silence_samples(model: Option<TranscriptionModelId>) -> usize {
 #[cfg(target_os = "macos")]
 impl WarmTranscriber {
     /// A warm transcriber already serving `model`, for opt-in harnesses.
-    #[cfg(test)]
     pub(crate) fn serving(model: Transcriber) -> Self {
         Self {
             active: Some(model),

@@ -405,6 +405,11 @@ const KEYS: &[Key] = &[
         "Labs: dictations saved to History keep their audio, so History can transcribe them again with another model; off stops saving, clearing History deletes it",
     ),
     key(
+        "labs.save_corrections",
+        Kind::Bool,
+        "Labs: after pasting, read back only the pasted text, never password fields, and keep your edits beside it in History",
+    ),
+    key(
         "labs.history_stats",
         Kind::Bool,
         "Labs: a summary of retained dictations at the top of History, and hex history stats",

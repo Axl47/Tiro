@@ -118,6 +118,8 @@ fn history_stats_parse_sum_retained_entries_and_need_the_labs_toggle() {
         kind: HistoryKind::Dictation,
         raw_text: raw.into(),
         final_text: final_text.into(),
+        corrected_text: None,
+        correction: None,
         application: Some("Zed".into()),
         processing: None,
         audio_ms: 6_000,

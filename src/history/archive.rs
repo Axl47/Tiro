@@ -15,7 +15,8 @@
 //! own folder sends nothing unless `TIRO_ARCHIVE_DESTINATION` names an rsync
 //! destination (which also overrides the real one; empty turns it off).
 //!
-//! The JSON is the entry as it was recorded; a later Transcribe again
+//! The JSON is the entry as it was recorded, sent again when its correction
+//! settles, since that can be minutes later; a later Transcribe again
 //! changes only the local History.
 
 use std::fs;
@@ -86,6 +87,19 @@ impl Archive {
             tracing::warn!(%error, id = entry.id, "could not queue a recording for the archive");
             return;
         }
+        self.wake();
+    }
+
+    /// Queues `entry`'s JSON again, over the copy already sent.
+    pub(super) fn update(&self, entry: &HistoryEntry) {
+        if let Err(error) = write_entry(&self.outbox, entry) {
+            tracing::warn!(%error, id = entry.id, "could not queue a correction for the archive");
+            return;
+        }
+        self.wake();
+    }
+
+    fn wake(&self) {
         let wake = self.wake.lock().unwrap_or_else(|error| error.into_inner());
         let _ = wake.send(());
     }
@@ -93,17 +107,27 @@ impl Archive {
 
 /// Links the WAV and writes the entry's JSON under the outbox's month folder.
 fn queue(outbox: &Path, wav: &Path, entry: &HistoryEntry) -> io::Result<()> {
+    let (folder, stem) = entry_location(outbox, entry)?;
+    let target = folder.join(format!("{stem}.wav"));
+    if fs::hard_link(wav, &target).is_err() {
+        fs::copy(wav, &target)?;
+    }
+    write_entry(outbox, entry)
+}
+
+/// The entry's month folder in the outbox, made owner-only, and file stem.
+fn entry_location(outbox: &Path, entry: &HistoryEntry) -> io::Result<(PathBuf, String)> {
     let time = UtcTime::from_ms(entry.timestamp_ms);
     let folder = outbox
         .join(format!("{:04}", time.year))
         .join(format!("{:02}", time.month));
     fs::create_dir_all(&folder)?;
     restrict_directories(outbox, &folder)?;
-    let stem = format!("{}-{}", time.stamp(), entry.id);
-    let target = folder.join(format!("{stem}.wav"));
-    if fs::hard_link(wav, &target).is_err() {
-        fs::copy(wav, &target)?;
-    }
+    Ok((folder, format!("{}-{}", time.stamp(), entry.id)))
+}
+
+fn write_entry(outbox: &Path, entry: &HistoryEntry) -> io::Result<()> {
+    let (folder, stem) = entry_location(outbox, entry)?;
     // Written aside and renamed, so rsync (which skips `*.tmp`) never sends half.
     let json = folder.join(format!("{stem}.json"));
     let temporary = json.with_extension("json.tmp");
@@ -320,6 +344,26 @@ mod tests {
         assert_eq!(json["raw_text"], "um hello");
         assert_eq!(json["final_text"], "Hello.");
         assert!(has_files(&outbox));
+
+        // A correction settles later: the same JSON, with the label beside it.
+        store
+            .correct(
+                id,
+                crate::history::Correction {
+                    text: Some("Hello there.".into()),
+                    status: crate::history::CorrectionStatus::Edited,
+                    source: crate::history::CorrectionSource::PastedField,
+                    captured_ms: 1,
+                },
+            )
+            .unwrap();
+        write_entry(&outbox, store.entry(id).unwrap()).unwrap();
+        let json: serde_json::Value =
+            serde_json::from_slice(&fs::read(folder.join(format!("{stem}.json"))).unwrap())
+                .unwrap();
+        assert_eq!(json["corrected_text"], "Hello there.");
+        assert_eq!(json["correction"]["status"], "edited");
+        assert_eq!(json["final_text"], "Hello.");
     }
 
     #[test]

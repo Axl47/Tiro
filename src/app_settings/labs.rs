@@ -68,6 +68,8 @@ pub struct LabsSettings {
     pub section_key_alone: bool,
     /// Dictations saved to History keep their audio, for Transcribe again (issue 1032).
     pub keep_recordings: bool,
+    /// Tiro: read back what became of a pasted dictation.
+    pub save_corrections: bool,
     pub hide_menu_bar_icon: bool,
     pub movable_meeting_capsules: bool,
     pub meeting_summary_model: bool,
@@ -134,6 +136,7 @@ impl Default for LabsSettings {
             picker_downloaded: false,
             section_key_alone: false,
             keep_recordings: false,
+            save_corrections: true,
             hide_menu_bar_icon: false,
             movable_meeting_capsules: false,
             meeting_summary_model: false,

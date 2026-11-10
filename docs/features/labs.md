@@ -57,6 +57,7 @@ Feature             Pane  Toggle (settings.json, hex settings)   On: what it doe
 ├── Use model files where they are no labs.model_in_place the picker adds a model file without copying it, so accounts can share one (#941)
 ├── Downloaded models only no labs.picker_downloaded   the picker's All speech models view can show only downloaded models, with the space Hex's copies take (#1018)
 ├── Keep recordings no    labs.keep_recordings         History entries keep their dictation audio; Transcribe again runs it through another installed model (#1032)
+├── Save corrections yes labs.save_corrections        (Tiro, macOS capture) after a paste, reads back only the pasted span and saves what became of it beside the entry's text
 ├── Hide menu bar icon no labs.hide_menu_bar_icon      (macOS) the menu-bar icon hides while no meeting is under way; shortcuts keep working, reopening Hex shows Settings (#1064)
 ├── Notch indicator no    labs.notch_indicator         (macOS) with the indicator at Top, the notch widens sideways in the Dynamic Island's compact style: an orange mic and level bars, the macOS spinner, a green checkmark; flat screens keep it below the menu bar
 ├── Movable meeting capsules no labs.movable_meeting_capsules (macOS) panel capsules (Meeting transcript ready, Recording automatically, offers, reminders) drag to another corner and show in the last one, shared with the recording capsule (#1093)
@@ -815,6 +816,34 @@ in the file manager, or choosing another folder for models. Checks:
 `every_feature_is_off_by_default_and_round_trips` in
 [labs.rs](../../src/labs.rs). Not yet observed: the row in a real window; the
 Labs page goldens need regenerating on Linux with the new row.
+
+Save corrections (`save-corrections`, Tiro, on by default; capture is macOS only,
+`history/corrections.rs`): the label a recording needs to become a training example.
+
+```ts
+Labs › Save corrections on                    // labs.save-corrections
+├── Dictation pasted and saved to History -> follow the field it went into
+│   ├── Find the span: the characters ending at the caret must be the paste
+│   ├── Follow it from the field's length and caret only; the text around it
+│   │   is never requested
+│   ├── Poll 400 ms while edited, 1 s when idle, for at most 15 minutes
+│   └── A field holds several spans: one message, several dictations
+├── The span ends: field gone, emptied (sent), or cut short
+│   -> last reading that still resembles the paste -> corrected_text, correction
+│   ├── status unchanged | edited, or no text: secure | unreadable
+│   └── an archived entry's JSON is queued again, so the label reaches the box
+├── Password field, or macOS secure input on -> nothing is read
+├── Chromium: Electron asked with AXManualAccessibility; Chrome, which ignores it,
+│   with AXEnhancedUserInterface, switched back when nothing is followed
+├── Off -> stops at once; nothing followed so far is saved
+└── History card -> Correct: type the right text, every OS; source history wins
+```
+
+Checks: `history::corrections` tests, and `a_correction_typed_in_history...` in
+`rune_ui/tests.rs` (Linux). Observed 2026-11-10 with the real app and real key events
+in TextEdit, T3 Code's composer, and Chrome's textarea, contenteditable, and password
+field. Not captured: Windows, Linux, and the phone, whose dictations make no History
+entry on the Mac. Not observed: a real send with Return, and an hour of daily use.
 
 Keep recordings (`keep-recordings`, issue 1032, every OS): for hearing a
 dictation again through a different model.

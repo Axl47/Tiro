@@ -135,6 +135,7 @@ substitute for source inspection or a second roadmap.
   paths, a vocabulary pre-match, the `tiro-scribe` process (`native/scribe`), a
   faithfulness check, and deterministic residue removal, which is also its fallback.
   `POST /cleanup` exposes it.
+- `history/corrections`: Tiro's Labs › Save corrections (macOS): after a paste, follows only the pasted span from the field's length and caret, and saves what became of it. Never reads a secure field.
 - `lan`: Tiro's opt-in LAN front for `android/` (Labs › LAN dictation): TLS with a
   pinned self-signed certificate, per-device tokens from `hex lan pair`, and an
   allowlist of three routes forwarded to the loopback local API.

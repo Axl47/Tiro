@@ -692,6 +692,7 @@ Completed output                         // output
         -> the card's "Transcribe again" menu runs it through any installed model
         -> the new text with Copy and Replace; Clear all and retention delete the audio (labs.md, #1032)
         -> Replace keeps the old text as one of 5 earlier versions: Copy, Use this version (#1177)
+Tiro: Correct on the card -> type the right text, saved as corrected_text; Labs > Save corrections (labs.md) reads it back after a paste on macOS
 Every entry since #1177 -> "Speech model" fact: the model that made its text (+ language when chosen)
 ```
 

@@ -98,6 +98,7 @@ pub enum Feature {
     PickerDownloaded,
     SectionKeyAlone,
     KeepRecordings,
+    SaveCorrections,
     HideMenuBarIcon,
     MovableMeetingCapsules,
     MeetingSummaryModel,
@@ -114,7 +115,7 @@ pub enum Feature {
 }
 
 impl Feature {
-    pub const ALL: [Self; 52] = [
+    pub const ALL: [Self; 53] = [
         Self::Meetings,
         Self::VoiceFilter,
         Self::Playground,
@@ -154,6 +155,7 @@ impl Feature {
         Self::PickerDownloaded,
         Self::SectionKeyAlone,
         Self::KeepRecordings,
+        Self::SaveCorrections,
         Self::HideMenuBarIcon,
         Self::MovableMeetingCapsules,
         Self::MeetingSummaryModel,
@@ -229,6 +231,7 @@ impl Feature {
             | Self::PickerDownloaded
             | Self::SectionKeyAlone
             | Self::KeepRecordings
+            | Self::SaveCorrections
             | Self::HideMenuBarIcon
             | Self::MovableMeetingCapsules
             | Self::MeetingSummaryModel
@@ -287,6 +290,7 @@ impl Feature {
             | Self::PickerDownloaded
             | Self::SectionKeyAlone
             | Self::KeepRecordings
+            | Self::SaveCorrections
             | Self::HideMenuBarIcon => 20261102,
             Self::MovableMeetingCapsules
             | Self::MeetingSummaryModel
@@ -384,6 +388,7 @@ impl Feature {
             | Self::ModelInPlace
             | Self::PickerDownloaded
             | Self::KeepRecordings
+            | Self::SaveCorrections
             | Self::MeetingSummaryModel
             | Self::MeetingNotesVocabulary
             | Self::MeetingFinishedEvent
@@ -437,6 +442,7 @@ impl Feature {
             Self::PickerDownloaded => "picker-downloaded",
             Self::SectionKeyAlone => "section-key",
             Self::KeepRecordings => "keep-recordings",
+            Self::SaveCorrections => "save-corrections",
             Self::HideMenuBarIcon => "hide-menu-bar-icon",
             Self::MovableMeetingCapsules => "movable-meeting-capsules",
             Self::MeetingSummaryModel => "meeting-summary-model",
@@ -495,6 +501,7 @@ impl Feature {
             Self::PickerDownloaded => "labs.picker_downloaded",
             Self::SectionKeyAlone => "labs.section_key_alone",
             Self::KeepRecordings => "labs.keep_recordings",
+            Self::SaveCorrections => "labs.save_corrections",
             Self::HideMenuBarIcon => "labs.hide_menu_bar_icon",
             Self::MovableMeetingCapsules => "labs.movable_meeting_capsules",
             Self::MeetingSummaryModel => "labs.meeting_summary_model",
@@ -613,6 +620,9 @@ impl Feature {
             Self::KeepRecordings => {
                 "Keep the audio of dictations saved to History, so you can transcribe them again with another model"
             }
+            Self::SaveCorrections => {
+                "After pasting, read back only the text Tiro pasted, never password fields, and keep your edits beside it in History"
+            }
             Self::HideMenuBarIcon => {
                 "Hide Hex's menu bar icon; shortcuts keep working, and opening Hex again shows Settings"
             }
@@ -701,6 +711,7 @@ impl Feature {
             Self::PickerDownloaded => settings.labs.picker_downloaded,
             Self::SectionKeyAlone => settings.labs.section_key_alone,
             Self::KeepRecordings => settings.labs.keep_recordings,
+            Self::SaveCorrections => settings.labs.save_corrections,
             Self::HideMenuBarIcon => settings.labs.hide_menu_bar_icon,
             Self::MovableMeetingCapsules => settings.labs.movable_meeting_capsules,
             Self::MeetingSummaryModel => settings.labs.meeting_summary_model,
@@ -761,6 +772,7 @@ impl Feature {
             &mut labs.picker_downloaded,
             &mut labs.section_key_alone,
             &mut labs.keep_recordings,
+            &mut labs.save_corrections,
             &mut labs.hide_menu_bar_icon,
             &mut labs.movable_meeting_capsules,
             &mut labs.meeting_summary_model,
@@ -821,6 +833,7 @@ impl Feature {
             Self::ModelInPlace => settings.labs.model_in_place = on,
             Self::PickerDownloaded => settings.labs.picker_downloaded = on,
             Self::KeepRecordings => settings.labs.keep_recordings = on,
+            Self::SaveCorrections => settings.labs.save_corrections = on,
             Self::HideMenuBarIcon => settings.labs.hide_menu_bar_icon = on,
             Self::MovableMeetingCapsules => settings.labs.movable_meeting_capsules = on,
             Self::MeetingSummaryModel => settings.labs.meeting_summary_model = on,
@@ -884,8 +897,9 @@ const SCREENSHOTS: u64 = 1 << 30;
 const ANNOTATE_REPLAY: u64 = 1 << 31;
 const SCRIBE_CLEANUP: u64 = 1 << 32;
 const LAN_DICTATION: u64 = 1 << 33;
+const SAVE_CORRECTIONS: u64 = 1 << 34;
 /// Unload-idle minutes (at most 1,440, 11 bits) sit above the switches.
-const MINUTES_SHIFT: u64 = 34;
+const MINUTES_SHIFT: u64 = 35;
 
 /// This process's `labs` switches: unknown until settings load or one is
 /// first read.
@@ -1044,6 +1058,13 @@ pub fn stop_when_call_ends() -> bool {
 /// the History pane reads the saved setting).
 pub fn keep_recordings() -> bool {
     on(KEEP_RECORDINGS)
+}
+
+/// Tiro: read back what became of a pasted dictation (read at each paste
+/// and each poll, so turning it off stops at once).
+#[cfg(target_os = "macos")]
+pub fn save_corrections() -> bool {
+    on(SAVE_CORRECTIONS)
 }
 
 /// The menu-bar icon is hidden while nothing records (macOS; read each
@@ -1213,6 +1234,11 @@ fn encode_where(settings: &LabsSettings, reaches: impl Fn(Feature) -> bool) -> u
             Feature::KeepRecordings,
             settings.keep_recordings,
             KEEP_RECORDINGS,
+        ),
+        (
+            Feature::SaveCorrections,
+            settings.save_corrections,
+            SAVE_CORRECTIONS,
         ),
         (
             Feature::HideMenuBarIcon,
@@ -1441,10 +1467,10 @@ mod tests {
     fn every_feature_is_off_by_default_and_round_trips() {
         let mut settings = AppSettings::default();
         for feature in Feature::ALL {
-            // Tiro exists for this one.
+            // Tiro exists for these.
             assert_eq!(
                 feature.on(&settings),
-                feature == Feature::ScribeCleanup,
+                matches!(feature, Feature::ScribeCleanup | Feature::SaveCorrections),
                 "{} has the wrong default",
                 feature.name()
             );

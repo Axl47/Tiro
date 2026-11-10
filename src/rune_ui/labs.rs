@@ -644,6 +644,12 @@ fn rows(ui: &Ui) -> Vec<Row> {
         tr("Keep the audio of dictations saved to History, so you can transcribe them again with another model"),
     ));
     rows.push(row(
+        Feature::SaveCorrections,
+        None,
+        tr("Save corrections"),
+        tr("After pasting, read back only the text Tiro pasted, never password fields, and keep your edits beside it in History"),
+    ));
+    rows.push(row(
         Feature::OutputFixes,
         Some(&BOOK),
         tr("Fix results in Output"),
@@ -778,6 +784,7 @@ fn row_key(lab: Lab) -> &'static str {
         Feature::PickerDownloaded => "lab-picker-downloaded",
         Feature::SectionKeyAlone => "lab-section-key",
         Feature::KeepRecordings => "lab-keep-recordings",
+        Feature::SaveCorrections => "lab-save-corrections",
         Feature::HideMenuBarIcon => "lab-hide-menu-bar-icon",
         Feature::MovableMeetingCapsules => "lab-movable-meeting-capsules",
         Feature::MeetingSummaryModel => "lab-meeting-summary-model",
