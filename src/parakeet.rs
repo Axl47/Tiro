@@ -1151,6 +1151,18 @@ impl Parakeet {
         Self::load_from(model_path, false, None)
     }
 
+    /// The model at `model_path`, ready to stream as a dictation does.
+    pub(crate) fn load_streaming(
+        model_path: &std::path::Path,
+        selection: &TranscriptionSelection,
+    ) -> Result<Self> {
+        let mut model = Self::load_from(model_path, false, Some(selection))?;
+        model.stream = model
+            .session
+            .probe_stream(&model.stream_run_options(), "parakeet");
+        Ok(model)
+    }
+
     fn load_from(
         model_path: &std::path::Path,
         diagnostics: bool,

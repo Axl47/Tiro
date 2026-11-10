@@ -174,6 +174,32 @@ enum Command {
         #[arg(long, default_value_t = 7)]
         runs: usize,
     },
+    /// Replay saved recordings through the dictation path with a vocabulary.
+    #[command(hide = true)]
+    ReplayDictations {
+        /// JSON array of `{"id", "audio"}` clips (16 kHz mono 16-bit WAVs).
+        manifest: PathBuf,
+        /// The GGUF model to run.
+        #[arg(long)]
+        model: PathBuf,
+        /// A list in `settings.json`'s `vocabulary` shape.
+        #[arg(long)]
+        vocabulary: Option<PathBuf>,
+        #[arg(long, value_enum, default_value = "normal")]
+        boost: ReplayBoost,
+        /// Times real speed to feed each live stream.
+        #[arg(long, default_value_t = 4.0)]
+        speed: f64,
+    },
+}
+
+#[cfg(target_os = "macos")]
+#[derive(Clone, Copy, ValueEnum)]
+enum ReplayBoost {
+    Off,
+    Light,
+    Normal,
+    Strong,
 }
 
 #[cfg(target_os = "macos")]
@@ -585,6 +611,26 @@ fn main() -> Result<()> {
             };
             transcription::benchmark::run(&manifest, warmups, runs, backend)
         }
+        Command::ReplayDictations {
+            manifest,
+            model,
+            vocabulary,
+            boost,
+            speed,
+        } => transcription::replay::run(
+            &manifest,
+            transcription::replay::Options {
+                model,
+                vocabulary,
+                boost: match boost {
+                    ReplayBoost::Off => dictation::vocabulary::VocabularyBoost::Off,
+                    ReplayBoost::Light => dictation::vocabulary::VocabularyBoost::Light,
+                    ReplayBoost::Normal => dictation::vocabulary::VocabularyBoost::Normal,
+                    ReplayBoost::Strong => dictation::vocabulary::VocabularyBoost::Strong,
+                },
+                speed,
+            },
+        ),
     }
 }
 
