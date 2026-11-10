@@ -25,11 +25,11 @@
     <string name="keyboard_choose">Switch keyboards</string>
 
     <string name="section_volume_key">Volume key</string>
-    <string name="volume_key_help">Keep your own keyboard. With a text field and the keyboard open, hold volume-down to talk and let go to finish. A quick press still changes the volume.</string>
+    <string name="volume_key_help">Keep your own keyboard. With a text field and the keyboard open, hold volume-down to talk and let go to finish, or double-tap it to talk hands-free and press it again to finish. A single quick press still changes the volume.</string>
     <string name="volume_key_enable">Turn on volume-key dictation</string>
     <string name="volume_key_enabled">Volume-key dictation is on</string>
     <string name="volume_key_name">Tiro volume-key dictation</string>
-    <string name="volume_key_description">While a text field and a keyboard are on screen, hold volume-down to dictate through your Mac. Tiro reads only the focused field, to type the text into it, and leaves the volume key alone everywhere else.</string>
+    <string name="volume_key_description">While a text field and a keyboard are on screen, hold or double-tap volume-down to dictate through your Mac. Tiro reads only the focused field, to type the text into it, and leaves the volume key alone everywhere else.</string>
 
     <string name="section_try">Try it</string>
     <string name="try_hint">Tap here, then hold volume-down and speak. Or switch to Tiro voice and hold the mic.</string>
@@ -44,6 +44,7 @@
 
     <string name="status_idle">Hold to talk, or tap to start and tap to finish.</string>
     <string name="status_listening">Listening… let go to finish.</string>
+    <string name="status_volume_toggled">Listening… press volume-down to finish.</string>
     <string name="status_locked">Listening… tap to finish.</string>
     <string name="status_working">Transcribing on your Mac…</string>
     <string name="status_done">Typed in %1$.1f s.</string>

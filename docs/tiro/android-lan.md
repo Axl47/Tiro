@@ -29,7 +29,8 @@ with the camera, confirm the pairing in Tiro, and allow the microphone. Then eit
 - **Volume key (recommended):** Tiro › Turn on volume-key dictation, then turn on
   *Tiro volume-key dictation* in Accessibility › Installed apps. Keep your own
   keyboard; with a text field and the keyboard open, hold volume-down to talk and let
-  go to finish. A quick press still changes the volume.
+  go to finish, or double-tap it to talk hands-free and press it again to finish. A
+  single quick press still changes the volume.
 - **Keyboard:** turn on the "Tiro voice" keyboard, switch to it in a text field, and
   hold the mic.
 
@@ -91,8 +92,11 @@ Mac.
   or Google voice input and takes no plug-ins, so dictation that keeps your keyboard
   needs its own trigger. `VolumeKeyDictation` is an accessibility service that takes
   volume-down only while an input-method window and an editable, non-password field
-  are on screen; elsewhere it never consumes the key. A press shorter than 300 ms is
-  handed back as a volume change. Recording starts at the threshold, with a haptic
+  are on screen; elsewhere it never consumes the key. A press shorter than 300 ms
+  waits 300 ms for a second press: one makes a double tap, which records hands-free
+  until the next press of volume-down (the keyboard need not still show), and
+  without one the first press is handed back as a volume change, so a lone volume
+  tap now lands 300 ms late. A hold starts recording at the threshold, with a haptic
   tick, so a tap never turns the microphone on. The text is set into the field at its
   selection (`ACTION_SET_TEXT`), else pasted; if neither works it stays on the
   clipboard.

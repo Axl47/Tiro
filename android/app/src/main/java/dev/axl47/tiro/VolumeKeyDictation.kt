@@ -19,13 +19,15 @@ import java.util.concurrent.Executors
 
 /**
  * Dictation from any keyboard: while a text field and a keyboard are on screen,
- * hold volume-down to talk and let go to finish, as with the Mac's shortcut. A
- * quick press still lowers the volume, and away from a text field the key is
- * never touched. The cleaned text is typed into the field that was focused
- * when the key went down.
+ * hold volume-down to talk and let go to finish, as with the Mac's shortcut, or
+ * double-tap it to talk hands-free and press it once more to finish. A single
+ * quick press still lowers the volume, once the double-tap window has passed,
+ * and away from a text field the key is never touched. The cleaned text is typed
+ * into the field that was focused when the key first went down.
  */
 class VolumeKeyDictation : AccessibilityService() {
-    private enum class State { Idle, Pressed, Recording, Working }
+    /** Tapped: one quick press, waiting to see if a second makes a double tap. */
+    private enum class State { Idle, Pressed, Tapped, Recording, Toggled, Working }
 
     private val work = Executors.newSingleThreadExecutor()
     private val main = Handler(Looper.getMainLooper())
@@ -33,19 +35,22 @@ class VolumeKeyDictation : AccessibilityService() {
     private lateinit var pill: DictationPill
     private var state = State.Idle
     private var target: AccessibilityNodeInfo? = null
-    private val holdReached = Runnable { begin() }
+    /** Whether the press now down is ours: its repeats and release are too. */
+    private var ownsPress = false
+    private val holdReached = Runnable { begin(State.Recording) }
+    private val tapExpired = Runnable { lowerVolume() }
 
     override fun onServiceConnected() {
         pill = DictationPill(this)
         dictation = LiveDictation(this) { text ->
-            main.post { if (state == State.Recording) pill.live(text) }
+            main.post { if (listening()) pill.live(text) }
         }
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) = Unit
 
     override fun onInterrupt() {
-        if (state == State.Pressed || state == State.Recording) cancel()
+        if (state == State.Pressed || state == State.Tapped || listening()) cancel()
     }
 
     override fun onDestroy() {
@@ -67,33 +72,60 @@ class VolumeKeyDictation : AccessibilityService() {
 
     private fun down(event: KeyEvent): Boolean {
         // Held keys repeat; a press already taken keeps its repeats.
-        if (event.repeatCount > 0) return state == State.Pressed || state == State.Recording
-        if (state != State.Idle || PairingStore.load(this) == null) return false
-        target = typingField() ?: return false
-        state = State.Pressed
-        main.postDelayed(holdReached, HOLD_MS)
+        if (event.repeatCount > 0) return ownsPress
+        ownsPress = when (state) {
+            State.Idle -> {
+                target = if (PairingStore.load(this) != null) typingField() else null
+                if (target != null) {
+                    state = State.Pressed
+                    main.postDelayed(holdReached, HOLD_MS)
+                }
+                target != null
+            }
+            State.Tapped -> {
+                main.removeCallbacks(tapExpired)
+                begin(State.Toggled)
+                true
+            }
+            State.Toggled -> {
+                finish()
+                true
+            }
+            State.Pressed, State.Recording, State.Working -> false
+        }
+        return ownsPress
+    }
+
+    private fun up(): Boolean {
+        if (!ownsPress) return false
+        ownsPress = false
+        when (state) {
+            State.Pressed -> {
+                // A quick press: a second one soon makes a double tap, else it
+                // was a volume change.
+                main.removeCallbacks(holdReached)
+                state = State.Tapped
+                main.postDelayed(tapExpired, DOUBLE_TAP_MS)
+            }
+            State.Recording -> finish()
+            // The press that started or finished a hands-free take.
+            State.Idle, State.Tapped, State.Toggled, State.Working -> Unit
+        }
         return true
     }
 
-    private fun up(): Boolean = when (state) {
-        State.Pressed -> {
-            // A tap: give the volume change back.
-            main.removeCallbacks(holdReached)
-            state = State.Idle
-            target = null
-            getSystemService(AudioManager::class.java).adjustSuggestedStreamVolume(
-                AudioManager.ADJUST_LOWER,
-                AudioManager.USE_DEFAULT_STREAM_TYPE,
-                AudioManager.FLAG_SHOW_UI,
-            )
-            true
-        }
-        State.Recording -> {
-            finish()
-            true
-        }
-        State.Idle, State.Working -> false
+    /** Gives a lone quick press its volume change back. */
+    private fun lowerVolume() {
+        state = State.Idle
+        target = null
+        getSystemService(AudioManager::class.java).adjustSuggestedStreamVolume(
+            AudioManager.ADJUST_LOWER,
+            AudioManager.USE_DEFAULT_STREAM_TYPE,
+            AudioManager.FLAG_SHOW_UI,
+        )
     }
+
+    private fun listening() = state == State.Recording || state == State.Toggled
 
     /** The focused, editable, non-password field, only while a keyboard shows. */
     private fun typingField(): AccessibilityNodeInfo? {
@@ -102,20 +134,23 @@ class VolumeKeyDictation : AccessibilityService() {
         return field.takeIf { it.isEditable && !it.isPassword }
     }
 
-    private fun begin() {
+    /** Starts a take: [State.Recording] ends on release, [State.Toggled] on the next press. */
+    private fun begin(mode: State) {
         val pairing = PairingStore.load(this)
         if (pairing == null || !dictation.start(pairing)) {
             state = State.Idle
             target = null
             return pill.flash(getString(R.string.status_no_microphone))
         }
-        state = State.Recording
+        state = mode
         tick()
-        pill.listening(getString(R.string.status_listening)) { dictation.level }
+        val message = if (mode == State.Toggled) R.string.status_volume_toggled else R.string.status_listening
+        pill.listening(getString(message)) { dictation.level }
     }
 
     private fun cancel() {
         main.removeCallbacks(holdReached)
+        main.removeCallbacks(tapExpired)
         dictation.cancel()
         state = State.Idle
         target = null
@@ -193,5 +228,8 @@ class VolumeKeyDictation : AccessibilityService() {
 
         /** A press shorter than this is a volume change. */
         const val HOLD_MS = 300L
+
+        /** A second press this soon after a quick one's release is a double tap. */
+        const val DOUBLE_TAP_MS = 300L
     }
 }

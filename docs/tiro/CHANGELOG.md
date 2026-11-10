@@ -6,6 +6,7 @@
 
 - Android: hold volume-down to dictate into any keyboard's text field, Samsung
   Keyboard included, with a small status pill while it works.
+- Android: double-tap volume-down to dictate hands-free; press it once more to finish.
 - LAN: `POST /dictate` transcribes and cleans up in one request. Android uses it,
   connects while you speak, and falls back to two requests on an older Mac.
 - Android streams a dictation to the Mac while you speak (`/dictate/stream`) and shows
