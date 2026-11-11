@@ -119,6 +119,7 @@ Mac.
 - **Placeholders aren't text.** WhatsApp reports its "Message" placeholder as the
   field's text without marking it as a hint, so a dictation was typed after it. Text
   equal to the field's hint, or in a short list of known placeholders, counts as empty.
+  WhatsApp exposes no hint at all (measured 2026-11-11), so only the list catches it.
 - **The pill is the HUD.** While a volume-key dictation runs, a pill under the status
   bar shows Listening (its dot follows the mic level), Transcribing, then the result.
   It is an accessibility overlay that is not touchable or focusable, and it is removed

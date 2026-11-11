@@ -256,9 +256,9 @@ class VolumeKeyDictation : AccessibilityService() {
 
     /**
      * The field's own text: empty while it shows its placeholder. WhatsApp
-     * reports its "Message" placeholder as text without marking it as one, so
-     * text equal to the field's hint, or to a known placeholder, counts as
-     * empty too.
+     * reports its "Message" placeholder as text, with neither the hint flag
+     * nor a hint (measured on the S24+, 2026-11-11), so only [PLACEHOLDERS]
+     * catches it; text equal to a field's hint counts as empty too.
      */
     private fun fieldText(field: AccessibilityNodeInfo): String {
         val text = field.text?.toString().orEmpty()
