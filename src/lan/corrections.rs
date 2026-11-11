@@ -60,6 +60,17 @@ pub(super) fn record(
     })
 }
 
+/// Records a dictation the phone sent whole, as a WAV (`POST /dictate`).
+pub(super) fn record_wav(transcript: &str, text: &str, wav: &[u8], total_ms: u64) -> Option<u64> {
+    let clip = crate::transcription::service::AudioClip::decode_wav(std::io::Cursor::new(wav)).ok();
+    let kept = clip
+        .as_ref()
+        .filter(|_| crate::labs::keep_recordings())
+        .map(|clip| clip.samples());
+    let audio_ms = clip.as_ref().map_or(0, |clip| clip.duration_ms);
+    record(transcript, text, audio_ms, kept, total_ms)
+}
+
 /// The fields a phone's answer gets: the entry to correct, and whether the
 /// phone should follow it at all.
 pub(super) fn answer_fields(entry: Option<u64>) -> serde_json::Value {

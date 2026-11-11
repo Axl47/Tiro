@@ -8,7 +8,7 @@
 use std::io::{Read, Write};
 use std::net::{SocketAddr, TcpStream};
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 const MAX_HEAD_BYTES: usize = 16 * 1024;
 /// About 30 minutes of 16 kHz 16-bit mono audio.
@@ -197,6 +197,7 @@ fn selection() -> String {
 }
 
 pub(super) fn serve(stream: TcpStream, config: Arc<rustls::ServerConfig>, peer: SocketAddr) {
+    let started = Instant::now();
     // Accepted from a nonblocking listener.
     if stream.set_nonblocking(false).is_err()
         || stream.set_read_timeout(Some(CLIENT_TIMEOUT)).is_err()
@@ -262,6 +263,8 @@ pub(super) fn serve(stream: TcpStream, config: Arc<rustls::ServerConfig>, peer: 
     // The whole body is read from the phone even after the API stops
     // taking it: it may answer early (`409 model-not-ready`) and close, and
     // answering mid-upload would reset the phone before it reads the answer.
+    // A dictation's audio is also kept for its History entry.
+    let mut heard = (forward.kind == Kind::ThenCleanup).then(|| body_prefix.to_vec());
     let mut left = forward.content_length - body_prefix.len();
     let mut buffer = vec![0_u8; 64 * 1024];
     while left > 0 {
@@ -270,6 +273,9 @@ pub(super) fn serve(stream: TcpStream, config: Arc<rustls::ServerConfig>, peer: 
             Ok(read) => {
                 left -= read;
                 accepted = accepted && upstream.write_all(&buffer[..read]).is_ok();
+                if let Some(heard) = &mut heard {
+                    heard.extend_from_slice(&buffer[..read]);
+                }
             }
         }
     }
@@ -289,7 +295,14 @@ pub(super) fn serve(stream: TcpStream, config: Arc<rustls::ServerConfig>, peer: 
         let answer = super::dictate::answer(
             &transcription,
             |text| super::dictate::cleanup(&discovery, text),
-            |transcript, text| super::corrections::record(transcript, text, 0, None, 0),
+            |transcript, text| {
+                super::corrections::record_wav(
+                    transcript,
+                    text,
+                    heard.as_deref().unwrap_or_default(),
+                    started.elapsed().as_millis() as u64,
+                )
+            },
         );
         let _ = client.write_all(&answer);
         close(&mut client);

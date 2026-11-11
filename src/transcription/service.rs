@@ -207,6 +207,11 @@ impl Drop for TranscriptionJob {
 }
 
 impl AudioClip {
+    /// The clip at 16 kHz mono.
+    pub fn samples(&self) -> &[f32] {
+        &self.samples
+    }
+
     pub fn decode_wav<R: Read + Seek>(reader: R) -> std::result::Result<Self, AudioError> {
         let mut reader = WavReader::new(reader).map_err(|_| AudioError::Invalid)?;
         let spec = reader.spec();
