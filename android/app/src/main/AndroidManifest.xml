@@ -28,19 +28,6 @@
             </intent-filter>
         </activity>
 
-        <service
-            android:name=".TiroKeyboard"
-            android:exported="true"
-            android:label="@string/keyboard_name"
-            android:permission="android.permission.BIND_INPUT_METHOD">
-            <intent-filter>
-                <action android:name="android.view.InputMethod" />
-            </intent-filter>
-            <meta-data
-                android:name="android.view.im"
-                android:resource="@xml/method" />
-        </service>
-
         <!-- Hold volume-down to dictate into any keyboard's field. -->
         <service
             android:name=".VolumeKeyDictation"

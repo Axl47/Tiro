@@ -8,11 +8,11 @@ import android.media.AudioManager
 /**
  * One dictation from start to text: records, streams to the Mac while it
  * records, and when the stream can't deliver (an older Mac, another stream
- * running, a dropped connection) sends the whole clip instead. Used by the
- * volume key and the keyboard alike. [onLive] gets provisional text for the
- * screen only, on a background thread; it is never typed. While it records it
- * holds exclusive audio focus, so music and videos pause, and they resume when
- * it stops; an app that ignores audio focus keeps playing.
+ * running, a dropped connection) sends the whole clip instead. [onLive] gets
+ * provisional text for the screen only, on a background thread; it is never
+ * typed. While it records it holds exclusive audio focus, so music and videos
+ * pause, and they resume when it stops; an app that ignores audio focus keeps
+ * playing.
  */
 class LiveDictation(context: Context, private val onLive: (String) -> Unit) {
     private val recorder = Recorder(context)

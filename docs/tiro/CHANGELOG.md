@@ -30,6 +30,10 @@
   it typed until you send, leave the field, or dictate again, and the Mac saves what
   you changed; corrections made while the Mac is away wait on the phone.
 
+### Removed
+
+- Android's Tiro voice keyboard; the volume key does everything it did.
+
 ### Fixed
 
 - Android no longer types a dictation after WhatsApp's "Message" placeholder.

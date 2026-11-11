@@ -1,13 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="keyboard_background">#FFF2F1EE</color>
-    <color name="key_background">#FFFFFFFF</color>
-    <color name="key_text">#FF1F1E1C</color>
-    <color name="keyboard_muted">#FF6B6862</color>
-    <color name="mic_idle">#FF1F1E1C</color>
-    <color name="mic_active">#FFC2410C</color>
-    <color name="mic_disabled">#FF8F8B84</color>
-    <color name="mic_text">#FFFFFFFF</color>
     <color name="accent">#FFC2410C</color>
     <color name="pill_background">#F01F1E1C</color>
     <color name="pill_text">#FFFFFFFF</color>

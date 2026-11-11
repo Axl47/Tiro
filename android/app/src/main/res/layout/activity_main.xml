@@ -42,11 +42,9 @@
             <Button android:id="@+id/unpair" style="@style/Action" android:text="@string/unpair" />
         </LinearLayout>
 
-        <TextView style="@style/Section" android:text="@string/section_keyboard" />
+        <TextView style="@style/Section" android:text="@string/section_microphone" />
 
         <Button android:id="@+id/microphone" style="@style/Wide" />
-        <Button android:id="@+id/enable_keyboard" style="@style/Wide" />
-        <Button android:id="@+id/choose_keyboard" style="@style/Wide" android:text="@string/keyboard_choose" />
 
         <TextView style="@style/Section" android:text="@string/section_volume_key" />
 

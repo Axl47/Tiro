@@ -37,7 +37,7 @@ class PinnedTrust(private val fingerprint: String) : X509TrustManager {
 
 /** Tiro's LAN routes on the paired Mac (`src/lan.rs`). Blocking: call off the main thread. */
 class MacClient(private val pairing: Pairing) {
-    /** A message fit to show in the keyboard's status line, and the Mac's error code. */
+    /** A message fit to show in the dictation pill, and the Mac's error code. */
     class Failure(message: String, val code: String? = null) : Exception(message)
 
     private val sockets: SSLSocketFactory = sockets(pairing.fingerprint)

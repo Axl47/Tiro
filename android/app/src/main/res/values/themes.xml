@@ -4,15 +4,6 @@
         <item name="android:colorAccent">@color/accent</item>
     </style>
 
-    <style name="Key">
-        <item name="android:layout_width">64dp</item>
-        <item name="android:layout_height">match_parent</item>
-        <item name="android:background">@drawable/key_background</item>
-        <item name="android:gravity">center</item>
-        <item name="android:textColor">@color/key_text</item>
-        <item name="android:textSize">22sp</item>
-    </style>
-
     <style name="Section">
         <item name="android:layout_width">wrap_content</item>
         <item name="android:layout_height">wrap_content</item>

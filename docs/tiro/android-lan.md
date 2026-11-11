@@ -5,8 +5,8 @@ The Android launcher uses the desktop app’s silver hexagon artwork, inset for 
 The phone records; the Mac does everything else. The phone runs no model.
 
 ```text
-volume key or Tiro keyboard ─TLS─▶ :47811 on the Mac (src/lan.rs)
-  hold the mic, speak        ├─ allowlist: GET /health, POST /dictate/stream, POST /dictate,
+volume key ─────────────────TLS─▶ :47811 on the Mac (src/lan.rs)
+  hold, speak                ├─ allowlist: GET /health, POST /dictate/stream, POST /dictate,
   │             POST /transcriptions, POST /cleanup
   let go                     ├─ paired device token (only its SHA-256 is stored)
                              └─▶ 127.0.0.1 local API: Parakeet, then the cleanup stage
@@ -24,15 +24,11 @@ hex lan pair --name Pixel        # prints a QR code and a tiro://pair link
 ```
 
 On the phone: install `android/` (`./gradlew :app:installDebug`), scan the QR code
-with the camera, confirm the pairing in Tiro, and allow the microphone. Then either:
-
-- **Volume key (recommended):** Tiro › Turn on volume-key dictation, then turn on
-  *Tiro volume-key dictation* in Accessibility › Installed apps. Keep your own
-  keyboard; with a text field and the keyboard open, hold volume-down to talk and let
-  go to finish, or double-tap it to talk hands-free and press it again to finish. A
-  single quick press still changes the volume.
-- **Keyboard:** turn on the "Tiro voice" keyboard, switch to it in a text field, and
-  hold the mic.
+with the camera, confirm the pairing in Tiro, and allow the microphone. Then Tiro › Turn on
+volume-key dictation, and turn on *Tiro volume-key dictation* in Accessibility ›
+Installed apps. Keep your own keyboard; with a text field and the keyboard open, hold
+volume-down to talk and let go to finish, or double-tap it to talk hands-free and
+press it again to finish. A single quick press still changes the volume.
 
 Android turns an accessibility service off when its app is force-stopped, so a force
 stop (or `agent-device open --relaunch`) means turning it on again.
@@ -114,8 +110,7 @@ Mac.
   dictation is posted as `{"entry","status","text"}`, and only the span, never the
   rest of the field. Unsent corrections wait in the phone's `CorrectionOutbox` (newest
   50) for the next dictation. The Mac only accepts them for Phone entries, and a
-  correction typed in History still wins. The Tiro voice keyboard doesn't follow its
-  text yet.
+  correction typed in History still wins.
 - **Placeholders aren't text.** WhatsApp reports its "Message" placeholder as the
   field's text without marking it as a hint, so a dictation was typed after it. Text
   equal to the field's hint, or in a short list of known placeholders, counts as empty.
@@ -132,7 +127,8 @@ Mac.
   cleanup round-trip; early errors from the API reach the client intact.
 - The Android app builds (debug and a 64 KB release), passes its unit tests (pairing
   links, WAV headers, fingerprints, spacing), and passes lint with no errors.
-- **On the Android 16 emulator, end to end** (2026-11-05), with a debug build playing a
+- **On the Android 16 emulator, end to end** (2026-11-05, through the Tiro voice
+  keyboard, removed 2026-11-11 in favour of the volume key), with a debug build playing a
   15 s clip instead of the microphone (`files/fixture.wav`):
   - the `tiro://pair` link opens the confirmation, and pairing then connects over pinned
     TLS (279 ms for the first request, handshake included);
