@@ -112,9 +112,11 @@ Mac.
   50) for the next dictation. The Mac only accepts them for Phone entries, and a
   correction typed in History still wins.
 - **Placeholders aren't text.** WhatsApp reports its "Message" placeholder as the
-  field's text without marking it as a hint, so a dictation was typed after it. Text
-  equal to the field's hint, or in a short list of known placeholders, counts as empty.
-  WhatsApp exposes no hint at all (measured 2026-11-11), so only the list catches it.
+  field's text without marking it as a hint, so a dictation was typed after it. It
+  exposes no hint either, but reports no cursor (selection -1) while the placeholder
+  shows; a field holding text reports its cursor, even at the start (measured
+  2026-11-11). So text equal to the field's hint, or one short line with no cursor,
+  counts as empty.
 - **The pill is the HUD.** While a volume-key dictation runs, a pill under the status
   bar shows Listening (its dot follows the mic level), Transcribing, then the result.
   It is an accessibility overlay that is not touchable or focusable, and it is removed

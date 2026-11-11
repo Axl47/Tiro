@@ -36,7 +36,7 @@
 
 ### Fixed
 
-- Android no longer types a dictation after WhatsApp's "Message" placeholder.
+- Android no longer types a dictation after WhatsApp's "Message" placeholder, or any placeholder an app reports as text but shows with no cursor.
 - History has a Correct button for typing a dictation's right text by hand, on every
   platform; what you type outranks anything read back from a field.
 - Smart spacing now works in T3 Code and other Electron apps, because Tiro asks them

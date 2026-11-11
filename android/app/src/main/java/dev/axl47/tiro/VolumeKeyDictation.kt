@@ -257,14 +257,18 @@ class VolumeKeyDictation : AccessibilityService() {
     /**
      * The field's own text: empty while it shows its placeholder. WhatsApp
      * reports its "Message" placeholder as text, with neither the hint flag
-     * nor a hint (measured on the S24+, 2026-11-11), so only [PLACEHOLDERS]
-     * catches it; text equal to a field's hint counts as empty too.
+     * nor a hint, but also with no cursor (selection -1), while a field that
+     * holds text, even with the cursor at its start, reports where the cursor
+     * is (measured on the S24+, 2026-11-11). Text equal to the field's hint
+     * counts as empty too. The no-cursor rule is kept to one short line, since
+     * mistaking real text for a placeholder would type over it.
      */
     private fun fieldText(field: AccessibilityNodeInfo): String {
         val text = field.text?.toString().orEmpty()
         val placeholder = field.isShowingHintText ||
             (text.isNotEmpty() && text == field.hintText?.toString()) ||
-            text in PLACEHOLDERS
+            (field.textSelectionStart < 0 && field.textSelectionEnd < 0 &&
+                text.length <= MAX_PLACEHOLDER && '\n' !in text)
         return if (placeholder) "" else text
     }
 
@@ -273,7 +277,7 @@ class VolumeKeyDictation : AccessibilityService() {
         val reported = field.text?.toString().orEmpty()
         val current = fieldText(field)
         if (current.isEmpty() && reported.isNotEmpty()) {
-            Log.i(TAG, "placeholder: hint flag=${field.isShowingHintText}, hint match=${reported == field.hintText?.toString()}")
+            Log.i(TAG, "placeholder: hint flag=${field.isShowingHintText}, selection=${field.textSelectionStart}")
         }
         val insertion = Insertion.splice(current, field.textSelectionStart, field.textSelectionEnd, text)
         val set = Bundle().apply {
@@ -319,10 +323,7 @@ class VolumeKeyDictation : AccessibilityService() {
         /** Real messages were sent up to 13 minutes after one of their dictations (the Mac's figure). */
         const val WATCH_MS = 15 * 60 * 1_000L
 
-        /**
-         * Placeholders apps report as the field's text without marking them,
-         * so a dictation would be typed after them. WhatsApp's, for now.
-         */
-        val PLACEHOLDERS = setOf("Message", "Mensaje")
+        /** The longest text a field without a cursor can show as its placeholder. */
+        const val MAX_PLACEHOLDER = 40
     }
 }
