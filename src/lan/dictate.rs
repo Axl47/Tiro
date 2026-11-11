@@ -13,10 +13,12 @@ const CLEANUP_TIMEOUT: Duration = Duration::from_secs(30);
 /// refusal (`409 model-not-ready`, …) passes through untouched. A failed
 /// cleanup falls back to the raw transcript: it is still better than losing
 /// the dictation, and the Mac's cleanup already falls back to its own
-/// deterministic pass whenever its model can't run.
+/// deterministic pass whenever its model can't run. `record` saves the
+/// dictation to History and gives the entry the phone may correct.
 pub(super) fn answer(
     transcription: &[u8],
     cleanup: impl FnOnce(&str) -> Option<String>,
+    record: impl FnOnce(&str, &str) -> Option<u64>,
 ) -> Vec<u8> {
     let Some((status, body)) = split(transcription) else {
         return json(502, &serde_json::json!({ "code": "tiro-unreachable" }));
@@ -35,10 +37,19 @@ pub(super) fn answer(
     } else {
         cleanup(&transcript).unwrap_or_else(|| transcript.clone())
     };
-    json(
-        200,
-        &serde_json::json!({ "text": text, "transcript": transcript }),
-    )
+    let mut body = serde_json::json!({ "text": text, "transcript": transcript });
+    merge(
+        &mut body,
+        super::corrections::answer_fields(record(&transcript, &text)),
+    );
+    json(200, &body)
+}
+
+/// Adds `fields`' keys to `body`.
+pub(super) fn merge(body: &mut serde_json::Value, fields: serde_json::Value) {
+    if let (Some(body), serde_json::Value::Object(fields)) = (body.as_object_mut(), fields) {
+        body.extend(fields);
+    }
 }
 
 /// Cleans `text` through the loopback API's `/cleanup`.
@@ -96,6 +107,7 @@ mod tests {
                 assert_eq!(text, "um hi there");
                 Some("Hi there.".into())
             },
+            |_, _| None,
         );
         assert_eq!(split(&response).map(|(status, _)| status), Some(200));
         assert_eq!(
@@ -105,28 +117,55 @@ mod tests {
     }
 
     #[test]
+    fn the_answer_names_the_history_entry() {
+        let response = answer(
+            &transcribed(200, r#"{"transcript":"hi"}"#),
+            |_| Some("Hi.".into()),
+            |transcript, text| {
+                assert_eq!((transcript, text), ("hi", "Hi."));
+                Some(7)
+            },
+        );
+        assert_eq!(body(&response)["entry"], 7);
+        assert_eq!(body(&response)["text"], "Hi.");
+    }
+
+    #[test]
     fn a_failed_cleanup_types_the_transcript() {
-        let response = answer(&transcribed(200, r#"{"transcript":"hi"}"#), |_| None);
+        let response = answer(
+            &transcribed(200, r#"{"transcript":"hi"}"#),
+            |_| None,
+            |_, _| None,
+        );
         assert_eq!(body(&response)["text"], "hi");
     }
 
     #[test]
     fn silence_skips_cleanup() {
-        let response = answer(&transcribed(200, r#"{"transcript":""}"#), |_| {
-            panic!("no cleanup")
-        });
+        let response = answer(
+            &transcribed(200, r#"{"transcript":""}"#),
+            |_| panic!("no cleanup"),
+            |_, _| None,
+        );
         assert_eq!(body(&response)["text"], "");
     }
 
     #[test]
     fn refusals_pass_through() {
         let refusal = transcribed(409, r#"{"code":"model-not-ready"}"#);
-        assert_eq!(answer(&refusal, |_| panic!("no cleanup")), refusal);
+        assert_eq!(
+            answer(
+                &refusal,
+                |_| panic!("no cleanup"),
+                |_, _| panic!("no record")
+            ),
+            refusal
+        );
     }
 
     #[test]
     fn garbage_is_unreachable() {
-        let response = answer(b"nonsense", |_| panic!("no cleanup"));
+        let response = answer(b"nonsense", |_| panic!("no cleanup"), |_, _| None);
         assert_eq!(split(&response).map(|(status, _)| status), Some(502));
     }
 }

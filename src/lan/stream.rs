@@ -10,7 +10,8 @@
 //!
 //! ```text
 //! {"type":"partial","text":…}  provisional, for the phone's pill only
-//! {"type":"final","text":…,"transcript":…}  the cleaned text to type
+//! {"type":"final","text":…,"transcript":…,"entry":…,"corrections":…}
+//!                              the cleaned text to type, and its History entry
 //! {"type":"error","code":…}
 //! ```
 //!
@@ -299,6 +300,8 @@ pub(super) fn serve(client: &mut Tls, leftover: Vec<u8>, loopback: Loopback, pee
         owner,
         timing: Default::default(),
         precleaned: Default::default(),
+        heard: std::cell::RefCell::new(Heard::new(crate::labs::keep_recordings())),
+        started: Instant::now(),
     };
     if client
         .write_all(
@@ -332,6 +335,34 @@ struct Stream {
     owner: String,
     timing: std::cell::RefCell<Timing>,
     precleaned: Arc<Precleaned>,
+    heard: std::cell::RefCell<Heard>,
+    started: Instant,
+}
+
+/// The audio a stream was sent: its length, and with Labs › Keep recordings
+/// on, the samples History keeps.
+struct Heard {
+    samples: usize,
+    kept: Option<Vec<f32>>,
+}
+
+impl Heard {
+    fn new(keep: bool) -> Self {
+        Self {
+            samples: 0,
+            kept: keep.then(Vec::new),
+        }
+    }
+
+    fn add(&mut self, pcm: &[u8]) {
+        self.samples += pcm.len() / 2;
+        if let Some(kept) = &mut self.kept {
+            kept.extend(
+                pcm.chunks_exact(2)
+                    .map(|pair| f32::from(i16::from_le_bytes([pair[0], pair[1]])) / 32_768.0),
+            );
+        }
+    }
 }
 
 /// Where a stream's time went, logged once when it finishes.
@@ -401,6 +432,7 @@ impl Stream {
             Some(("application/octet-stream", pcm)),
             REQUEST,
         );
+        self.heard.borrow_mut().add(pcm);
         let mut timing = self.timing.borrow_mut();
         timing.frames += 1;
         timing.relay += started.elapsed();
@@ -429,7 +461,17 @@ impl Stream {
                         rest_words = rest.split_whitespace().count();
                         super::dictate::cleanup(&self.loopback, rest)
                     });
-                    serde_json::json!({ "type": "final", "text": text, "transcript": transcript })
+                    let heard = self.heard.borrow();
+                    let entry = super::corrections::record(
+                        &transcript,
+                        &text,
+                        heard.samples as u64 / 16,
+                        heard.kept.as_deref(),
+                        self.started.elapsed().as_millis() as u64,
+                    );
+                    let mut body = serde_json::json!({ "type": "final", "text": text, "transcript": transcript });
+                    super::dictate::merge(&mut body, super::corrections::answer_fields(entry));
+                    body
                 })
                 .unwrap_or_else(
                     || serde_json::json!({ "type": "error", "code": "tiro-unreachable" }),

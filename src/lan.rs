@@ -11,6 +11,7 @@
 //!                        GET /health · POST /transcriptions · POST /cleanup
 //!                        POST /dictate (= /transcriptions, then /cleanup)
 //!                        POST /dictate/stream (live, over `/streams`)
+//!                        POST /corrections (answered here, `corrections`)
 //! ```
 //!
 //! Pairing (`hex lan pair`) prints a `tiro://pair` link and its QR code:
@@ -19,6 +20,7 @@
 //! phone finds it again after its address changes.
 
 mod bonjour;
+mod corrections;
 mod dictate;
 mod loopback;
 mod pairing;
@@ -47,8 +49,11 @@ fn port() -> u16 {
 }
 
 /// Follows the Labs switch for the life of the app: listens while it is on,
-/// and closes the port while it is off.
-pub fn start() {
+/// and closes the port while it is off. Phone dictations go to `history`.
+pub fn start(history: Option<crate::history::History>) {
+    if let Some(history) = history {
+        corrections::attach(history);
+    }
     let started = std::thread::Builder::new()
         .name("lan-listener".into())
         .spawn(watch);

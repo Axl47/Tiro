@@ -1061,8 +1061,8 @@ pub fn keep_recordings() -> bool {
 }
 
 /// Tiro: read back what became of a pasted dictation (read at each paste
-/// and each poll, so turning it off stops at once).
-#[cfg(target_os = "macos")]
+/// and each poll, so turning it off stops at once). Phones follow it too
+/// (`lan::corrections`).
 pub fn save_corrections() -> bool {
     on(SAVE_CORRECTIONS)
 }

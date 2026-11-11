@@ -2,7 +2,8 @@
 //! allowlist and a paired device's token, rewritten for the loopback API
 //! (its token, `Connection: close`, and for audio the model dictation holds),
 //! and the body and the response are copied through. `/dictate` and
-//! `/dictate/stream` do more on the way (`super::dictate`, `super::stream`).
+//! `/dictate/stream` do more on the way (`super::dictate`, `super::stream`),
+//! and `/corrections` is answered here (`super::corrections`).
 
 use std::io::{Read, Write};
 use std::net::{SocketAddr, TcpStream};
@@ -53,6 +54,8 @@ pub(super) enum Kind {
     ThenCleanup,
     /// `/dictate/stream`: framed audio on this connection (`super::stream`).
     Stream,
+    /// `/corrections`: answered here, never forwarded (`super::corrections`).
+    Corrections,
 }
 
 pub(super) fn parse_head(bytes: &[u8]) -> Option<Head> {
@@ -100,6 +103,7 @@ pub(super) fn route(
             Kind::ThenCleanup,
         ),
         ("POST", "/dictate/stream") => ("/streams".to_owned(), 0, Kind::Stream),
+        ("POST", "/corrections") => (String::new(), MAX_TEXT_BYTES, Kind::Corrections),
         _ => return Err(Refusal(404, "not-found")),
     };
     let token = head
@@ -222,6 +226,21 @@ pub(super) fn serve(stream: TcpStream, config: Arc<rustls::ServerConfig>, peer: 
             return refuse(&mut client, refusal);
         }
     };
+    if forward.kind == Kind::Corrections {
+        let mut body = body;
+        body.truncate(forward.content_length);
+        let mut chunk = [0_u8; 4096];
+        while body.len() < forward.content_length {
+            match client.read(&mut chunk) {
+                Ok(0) | Err(_) => return,
+                Ok(read) => body.extend_from_slice(&chunk[..read]),
+            }
+        }
+        body.truncate(forward.content_length);
+        let _ = client.write_all(&super::corrections::answer(&body));
+        close(&mut client);
+        return;
+    }
     let Some(discovery) = super::loopback::Loopback::discover() else {
         return refuse(&mut client, Refusal(503, "tiro-not-ready"));
     };
@@ -267,9 +286,11 @@ pub(super) fn serve(stream: TcpStream, config: Arc<rustls::ServerConfig>, peer: 
     if forward.kind == Kind::ThenCleanup {
         let mut transcription = Vec::new();
         let _ = upstream.read_to_end(&mut transcription);
-        let answer = super::dictate::answer(&transcription, |text| {
-            super::dictate::cleanup(&discovery, text)
-        });
+        let answer = super::dictate::answer(
+            &transcription,
+            |text| super::dictate::cleanup(&discovery, text),
+            |transcript, text| super::corrections::record(transcript, text, 0, None, 0),
+        );
         let _ = client.write_all(&answer);
         close(&mut client);
         return;
@@ -333,6 +354,24 @@ mod tests {
         let forward = route(&request, paired, held).unwrap();
         assert_eq!(forward.kind, Kind::Stream);
         let stranger = head("POST /dictate/stream HTTP/1.1\r\nAuthorization: Bearer bad\r\n\r\n");
+        assert_eq!(
+            route(&stranger, paired, held),
+            Err(Refusal(401, "not-paired"))
+        );
+    }
+
+    #[test]
+    fn corrections_are_answered_here_with_a_bounded_body() {
+        let request = head(
+            "POST /corrections HTTP/1.1\r\nAuthorization: Bearer good\r\nContent-Length: 40\r\n\r\n",
+        );
+        assert_eq!(
+            route(&request, paired, held).unwrap().kind,
+            Kind::Corrections
+        );
+        let stranger = head(
+            "POST /corrections HTTP/1.1\r\nAuthorization: Bearer bad\r\nContent-Length: 40\r\n\r\n",
+        );
         assert_eq!(
             route(&stranger, paired, held),
             Err(Refusal(401, "not-paired"))

@@ -577,7 +577,6 @@ impl HistoryStore {
         self.entries.iter().rev()
     }
 
-    #[cfg(test)]
     pub fn entry(&self, id: u64) -> Option<&HistoryEntry> {
         self.entries.iter().find(|entry| entry.id == id)
     }
@@ -815,6 +814,11 @@ impl History {
             .into_iter()
             .cloned()
             .collect()
+    }
+
+    /// A copy of entry `id`, if it is still retained.
+    pub fn entry(&self, id: u64) -> Option<HistoryEntry> {
+        self.synced().entry(id).cloned()
     }
 
     /// The text entry `id` inserted, if it is still retained.
