@@ -26,6 +26,10 @@ import java.util.concurrent.Executors
  * the volume down never starts a dictation. Away from a text field the key is
  * never touched. The cleaned text is typed
  * into the field that was focused when the key first went down.
+ *
+ * Then, while the Mac asks for it (Labs › Save corrections), it follows what
+ * you make of that text ([FieldSpan]) until you send it, leave the field or
+ * the keyboard, or dictate again, and tells the Mac ([CorrectionOutbox]).
  */
 class VolumeKeyDictation : AccessibilityService() {
     /** Tapped: one quick press, waiting to see if a second makes a double tap. */
@@ -41,23 +45,40 @@ class VolumeKeyDictation : AccessibilityService() {
     private var ownsPress = false
     /** Until when volume-down presses go straight to the system as volume changes. */
     private var volumeStreakEnds = 0L
+    private lateinit var outbox: CorrectionOutbox
+    private var watch: Watch? = null
+    private val watchExpired = Runnable { endWatch() }
     private val holdReached = Runnable { begin(State.Recording) }
     private val tapExpired = Runnable { lowerVolume() }
 
     override fun onServiceConnected() {
         pill = DictationPill(this)
+        outbox = CorrectionOutbox(this)
         dictation = LiveDictation(this) { text ->
             main.post { if (listening()) pill.live(text) }
         }
     }
 
-    override fun onAccessibilityEvent(event: AccessibilityEvent?) = Unit
+    /** Only events about a followed dictation matter. */
+    override fun onAccessibilityEvent(event: AccessibilityEvent?) {
+        val followed = watch ?: return
+        when (event?.eventType) {
+            AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED -> {
+                val text = followed.field.takeIf { it.refresh() }?.let(::fieldText)
+                if (text == null || !followed.span.read(text)) endWatch()
+            }
+            AccessibilityEvent.TYPE_VIEW_FOCUSED -> if (event.source != followed.field) endWatch()
+            AccessibilityEvent.TYPE_WINDOWS_CHANGED ->
+                if (windows.none { it.type == AccessibilityWindowInfo.TYPE_INPUT_METHOD }) endWatch()
+        }
+    }
 
     override fun onInterrupt() {
         if (state == State.Pressed || state == State.Tapped || listening()) cancel()
     }
 
     override fun onDestroy() {
+        endWatch()
         if (::dictation.isInitialized) dictation.cancel()
         if (::pill.isInitialized) pill.remove()
         work.shutdownNow()
@@ -148,6 +169,7 @@ class VolumeKeyDictation : AccessibilityService() {
 
     /** Starts a take: [State.Recording] ends on release, [State.Toggled] on the next press. */
     private fun begin(mode: State) {
+        endWatch()
         val pairing = PairingStore.load(this)
         if (pairing == null || !dictation.start(pairing)) {
             state = State.Idle
@@ -188,27 +210,71 @@ class VolumeKeyDictation : AccessibilityService() {
         }
     }
 
-    private fun deliver(outcome: Result<String>, elapsedMs: Long) {
+    private fun deliver(outcome: Result<Dictated>, elapsedMs: Long) {
         state = State.Idle
         val field = target?.takeIf { it.refresh() } ?: typingField()
         target = null
-        val text = outcome.getOrElse { error ->
+        val dictated = outcome.getOrElse { error ->
             Log.i(TAG, "dictation failed after $elapsedMs ms: ${error.message}")
             return pill.flash(error.message ?: getString(R.string.status_failed))
         }
+        val text = dictated.text
         if (text.isBlank()) return pill.flash(getString(R.string.status_nothing))
-        if (field == null || !insert(field, text)) {
+        val insertion = field?.let { insert(it, text) }
+        if (field == null || insertion == null) {
             // The take isn't lost: it's on the clipboard to paste.
             copy(text)
             return pill.flash(getString(R.string.status_copied))
         }
         Log.i(TAG, "typed ${text.length} chars in $elapsedMs ms")
         pill.flash(getString(R.string.status_done, elapsedMs / 1000.0))
+        if (dictated.entry != null && dictated.follow) follow(field, insertion, dictated.entry)
+        flushCorrections()
     }
 
-    /** Sets the field's text with the dictation in place, else pastes it. */
-    private fun insert(field: AccessibilityNodeInfo, text: String): Boolean {
-        val current = if (field.isShowingHintText) "" else field.text?.toString().orEmpty()
+    /** Follows the dictation just typed into [field] as History [entry]. */
+    private fun follow(field: AccessibilityNodeInfo, insertion: Insertion, entry: Long) {
+        val start = insertion.caret - insertion.inserted.length
+        watch = Watch(field, entry, FieldSpan(insertion.inserted, insertion.text, start, insertion.caret))
+        main.postDelayed(watchExpired, WATCH_MS)
+    }
+
+    /** Settles the followed dictation, if any, with its last good reading. */
+    private fun endWatch() {
+        val ended = watch ?: return
+        watch = null
+        main.removeCallbacks(watchExpired)
+        Log.i(TAG, "dictation followed to its end; edited=${ended.span.edited}")
+        outbox.add(Correction.of(ended.entry, ended.span))
+        flushCorrections()
+    }
+
+    private fun flushCorrections() {
+        val pairing = PairingStore.load(this) ?: return
+        work.execute { runCatching { outbox.flush(MacClient(pairing)) } }
+    }
+
+    /**
+     * The field's own text: empty while it shows its placeholder. WhatsApp
+     * reports its "Message" placeholder as text without marking it as one, so
+     * text equal to the field's hint, or to a known placeholder, counts as
+     * empty too.
+     */
+    private fun fieldText(field: AccessibilityNodeInfo): String {
+        val text = field.text?.toString().orEmpty()
+        val placeholder = field.isShowingHintText ||
+            (text.isNotEmpty() && text == field.hintText?.toString()) ||
+            text in PLACEHOLDERS
+        return if (placeholder) "" else text
+    }
+
+    /** Sets the field's text with the dictation in place, else pastes it; null if neither worked. */
+    private fun insert(field: AccessibilityNodeInfo, text: String): Insertion? {
+        val reported = field.text?.toString().orEmpty()
+        val current = fieldText(field)
+        if (current.isEmpty() && reported.isNotEmpty()) {
+            Log.i(TAG, "placeholder: hint flag=${field.isShowingHintText}, hint match=${reported == field.hintText?.toString()}")
+        }
         val insertion = Insertion.splice(current, field.textSelectionStart, field.textSelectionEnd, text)
         val set = Bundle().apply {
             putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, insertion.text)
@@ -221,11 +287,14 @@ class VolumeKeyDictation : AccessibilityService() {
                     putInt(AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_END_INT, insertion.caret)
                 },
             )
-            return true
+            return insertion
         }
         copy(insertion.inserted)
-        return field.performAction(AccessibilityNodeInfo.ACTION_PASTE)
+        return insertion.takeIf { field.performAction(AccessibilityNodeInfo.ACTION_PASTE) }
     }
+
+    /** A dictation being followed: typed into [field], saved on the Mac as [entry]. */
+    private class Watch(val field: AccessibilityNodeInfo, val entry: Long, val span: FieldSpan)
 
     private fun copy(text: String) {
         getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("Tiro", text))
@@ -246,5 +315,14 @@ class VolumeKeyDictation : AccessibilityService() {
 
         /** After a volume change, presses this close to the last one change the volume too. */
         const val VOLUME_STREAK_MS = 1_000L
+
+        /** Real messages were sent up to 13 minutes after one of their dictations (the Mac's figure). */
+        const val WATCH_MS = 15 * 60 * 1_000L
+
+        /**
+         * Placeholders apps report as the field's text without marking them,
+         * so a dictation would be typed after them. WhatsApp's, for now.
+         */
+        val PLACEHOLDERS = setOf("Message", "Mensaje")
     }
 }

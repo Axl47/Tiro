@@ -25,6 +25,14 @@
   follows only the text it pasted and saves what you changed as `corrected_text`,
   beside `raw_text` and `final_text`. Password fields are never read.
 - A settled correction also reaches the Storage Box, in that recording's JSON.
+- Phone dictations land in the Mac's History (application "Phone"), with their
+  recording under Keep recordings. With Save corrections on, Android follows the text
+  it typed until you send, leave the field, or dictate again, and the Mac saves what
+  you changed; corrections made while the Mac is away wait on the phone.
+
+### Fixed
+
+- Android no longer types a dictation after WhatsApp's "Message" placeholder.
 - History has a Correct button for typing a dictation's right text by hand, on every
   platform; what you type outranks anything read back from a field.
 - Smart spacing now works in T3 Code and other Electron apps, because Tiro asks them

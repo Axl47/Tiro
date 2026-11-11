@@ -51,10 +51,15 @@ class MacClient(private val pairing: Pairing) {
      * request: an older Mac refuses unknown routes before reading the body,
      * so a refused upload would arrive as a reset rather than its 404.
      */
-    fun dictate(wav: ByteArray): String? {
+    fun dictate(wav: ByteArray): Dictated? {
         if (hasDictate(pairing.fingerprint) != true) learned(pairing.fingerprint, probe())
         if (hasDictate(pairing.fingerprint) == false) return null
-        return JSONObject(request("POST", "/dictate", "audio/wav", wav)).getString("text")
+        return Dictated.from(JSONObject(request("POST", "/dictate", "audio/wav", wav)))
+    }
+
+    /** Tells the Mac what became of History [entry] (`src/lan/corrections.rs`). */
+    fun correct(correction: Correction) {
+        request("POST", "/corrections", "application/json", correction.json().toString().toByteArray())
     }
 
     private fun probe(): Boolean = try {

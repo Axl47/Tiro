@@ -103,6 +103,22 @@ Mac.
   tick, so a tap never turns the microphone on. The text is set into the field at its
   selection (`ACTION_SET_TEXT`), else pasted; if neither works it stays on the
   clipboard.
+- **What became of it (`POST /corrections`).** Each dictation the Mac answers is
+  saved to its History as application "Phone" (with its audio under Keep recordings),
+  and the answer carries `entry` and `corrections` (Labs › Save corrections). With
+  corrections on, the volume-key service follows the span it typed from the field's
+  text-change events (`FieldSpan`): an edit before it moves it, one inside resizes it,
+  and text typed at its end joins only when it continues the last word. The watch ends
+  when the span goes away (sent), focus leaves the field, the keyboard closes, another
+  dictation starts, or after 15 minutes; the last reading that still resembles the
+  dictation is posted as `{"entry","status","text"}`, and only the span, never the
+  rest of the field. Unsent corrections wait in the phone's `CorrectionOutbox` (newest
+  50) for the next dictation. The Mac only accepts them for Phone entries, and a
+  correction typed in History still wins. The Tiro voice keyboard doesn't follow its
+  text yet.
+- **Placeholders aren't text.** WhatsApp reports its "Message" placeholder as the
+  field's text without marking it as a hint, so a dictation was typed after it. Text
+  equal to the field's hint, or in a short list of known placeholders, counts as empty.
 - **The pill is the HUD.** While a volume-key dictation runs, a pill under the status
   bar shows Listening (its dot follows the mic level), Transcribing, then the result.
   It is an accessibility overlay that is not touchable or focusable, and it is removed

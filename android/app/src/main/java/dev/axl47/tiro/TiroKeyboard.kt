@@ -151,7 +151,7 @@ class TiroKeyboard : InputMethodService() {
         render(getString(R.string.status_working))
         val released = SystemClock.elapsedRealtime()
         work.execute {
-            val outcome = runCatching { MacFinder.withMac(this, pairing) { take.text(MacClient(it)) } }
+            val outcome = runCatching { MacFinder.withMac(this, pairing) { take.text(MacClient(it)).text } }
             val elapsed = SystemClock.elapsedRealtime() - released
             main.post { deliver(outcome, elapsed) }
         }

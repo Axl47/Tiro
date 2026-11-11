@@ -20,7 +20,7 @@ import org.json.JSONObject
  */
 class LiveStream(private val pairing: Pairing, private val onLive: (String) -> Unit) {
     private val writer = Executors.newSingleThreadExecutor()
-    private val final = CompletableFuture<String>()
+    private val final = CompletableFuture<Dictated>()
 
     @Volatile private var socket: SSLSocket? = null
 
@@ -44,7 +44,7 @@ class LiveStream(private val pairing: Pairing, private val onLive: (String) -> U
      * The cleaned text, waiting for it after [end]; null when the stream
      * failed, so the caller can send the whole clip instead.
      */
-    fun awaitText(): String? = try {
+    fun awaitText(): Dictated? = try {
         final.get(FINAL_TIMEOUT_S, TimeUnit.SECONDS)
     } catch (_: Exception) {
         null
@@ -86,7 +86,7 @@ class LiveStream(private val pairing: Pairing, private val onLive: (String) -> U
                 when (event.getString("type")) {
                     "partial" -> onLive(event.getString("text"))
                     "final" -> {
-                        final.complete(event.getString("text"))
+                        final.complete(Dictated.from(event))
                         return
                     }
                     else -> throw IOException("stream error: ${event.optString("code")}")

@@ -69,7 +69,7 @@ class LiveDictation(context: Context, private val onLive: (String) -> Unit) {
 
     class Take(private val wav: ByteArray, private val stream: LiveStream?) {
         /** The cleaned text, empty when nothing was heard. Blocking. */
-        fun text(client: MacClient): String = stream?.awaitText() ?: Dictation(client).run(wav)
+        fun text(client: MacClient): Dictated = stream?.awaitText() ?: Dictation(client).run(wav)
     }
 
     private companion object {
