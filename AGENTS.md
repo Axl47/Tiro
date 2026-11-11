@@ -8,6 +8,8 @@ copy. Merge upstream rather than rebasing. Keep changes in new files where possi
 and leave internal `hex_` names alone (`docs/tiro/architecture.md`). Measure cleanup
 changes with `benchmarks/cleanup/` before and after.
 
+Landing: commit on `dev` and push `origin/dev`. No PR.
+
 ## Local environment
 
 - Building `native/scribe` needs Xcode's Metal Toolchain: `xcodebuild -downloadComponent MetalToolchain`.
