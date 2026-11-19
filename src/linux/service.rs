@@ -36,7 +36,8 @@ const IO_TIMEOUT: Duration = Duration::from_secs(2);
 const CLIENTS: usize = 8;
 /// A send waits for the router's answer (it waits 8 s itself).
 const SEND_WAIT: Duration = Duration::from_secs(10);
-const UNIT: &str = "hex.service";
+/// Tiro's systemd user unit, apart from an installed Hex's `hex.service`.
+pub(crate) const UNIT: &str = "tiro.service";
 /// How long a launch waits for a started unit's socket. `Type=notify`
 /// units are ready when `systemctl start` returns; units an older installer
 /// wrote are `Type=simple` and need the wait.
@@ -833,7 +834,7 @@ fn custom_root() -> bool {
 
 /// Whether `root` is the default data root under the user's data directory.
 fn default_root(root: &Path, data: Option<&Path>) -> bool {
-    data.is_some_and(|data| root == data.join("hex"))
+    data.is_some_and(|data| root == data.join(crate::app_paths::support_folder()))
 }
 
 fn systemctl(arguments: &[&str]) -> Result<()> {
@@ -1155,15 +1156,19 @@ mod tests {
     fn the_default_folder_named_explicitly_is_not_a_custom_root() {
         let data = Path::new("/home/kit/.local/share");
         assert!(default_root(
-            Path::new("/home/kit/.local/share/hex"),
+            Path::new("/home/kit/.local/share/tiro"),
             Some(data)
         ));
         assert!(default_root(
-            Path::new("/home/kit/.local/share/hex/"),
+            Path::new("/home/kit/.local/share/tiro/"),
+            Some(data)
+        ));
+        assert!(!default_root(
+            Path::new("/home/kit/.local/share/hex"),
             Some(data)
         ));
         assert!(!default_root(Path::new("/tmp/hex-test"), Some(data)));
-        assert!(!default_root(Path::new("/home/kit/.local/share/hex"), None));
+        assert!(!default_root(Path::new("/home/kit/.local/share/tiro"), None));
     }
 
     #[test]
