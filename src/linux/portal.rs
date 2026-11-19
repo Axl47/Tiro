@@ -31,12 +31,12 @@ const DESKTOP_PATH: &str = "/org/freedesktop/portal/desktop";
 const SHORTCUTS: &str = "org.freedesktop.portal.GlobalShortcuts";
 const REQUEST: &str = "org.freedesktop.portal.Request";
 const SESSION: &str = "org.freedesktop.portal.Session";
-/// Hex's Linux app id: the portal names host apps by their desktop entry,
-/// `anomaly.hex.desktop`, and Hex's windows report it as their Wayland
+/// Tiro's Linux app id: the portal names host apps by their desktop entry,
+/// `dev.axl47.tiro.desktop`, and the windows report it as their Wayland
 /// app_id and X11 WM_CLASS. GNOME's shortcuts provider before 51 rejects ids
 /// that are not reverse-DNS (#579), so this matches the macOS bundle
-/// identifier.
-pub(crate) const APP_ID: &str = "anomaly.hex";
+/// identifier, and keeps Tiro's shortcuts apart from an installed Hex's.
+pub(crate) const APP_ID: &str = "dev.axl47.tiro";
 /// The app id and entry name before #579.
 const LEGACY_APP_ID: &str = "hex";
 const LEGACY_ENTRY: &str = "hex.desktop";
@@ -179,7 +179,7 @@ pub(crate) struct PortalBus {
     /// The portal interface this bus serves and its version.
     interface: &'static str,
     pub(crate) version: u32,
-    /// The portal knows Hex as `anomaly.hex` (xdg-desktop-portal 1.20 and
+    /// The portal knows Hex as `dev.axl47.tiro` (xdg-desktop-portal 1.20 and
     /// newer register host apps); older ones may not know Hex's app id.
     pub(crate) registered: bool,
 }
@@ -261,7 +261,7 @@ impl PortalBus {
             &(APP_ID, HashMap::<&str, Variant<'_>>::new()),
         ) {
             if !unknown(&error) {
-                // The portal finds the app id through anomaly.hex.desktop and the caller's
+                // The portal finds the app id through dev.axl47.tiro.desktop and the caller's
                 // /proc entry, which setgid wrappers such as newgrp make unreadable.
                 let fix = match written {
                     Some(entry) => format!(
@@ -472,7 +472,7 @@ pub(crate) fn tidy_desktop_entries() -> Result<()> {
 }
 
 /// The portal identifies a host app by a desktop entry named for its id,
-/// `anomaly.hex.desktop`, which installs ship: see [`DesktopEntries::ensure`].
+/// `dev.axl47.tiro.desktop`, which installs ship: see [`DesktopEntries::ensure`].
 /// What Hex's launcher entry starts: the same stable path as Launch at
 /// login, so a version manager's upgrade doesn't strand it (#810).
 fn executable() -> Result<String> {
@@ -554,7 +554,7 @@ impl DesktopEntries {
     }
 
     /// Moves Hex's own managed `hex.desktop` (the name before #579) to
-    /// `anomaly.hex.desktop`, keeping its Exec lines, unless the user put an
+    /// `dev.axl47.tiro.desktop`, keeping its Exec lines, unless the user put an
     /// entry of their own there; then removes a hidden fallback that would
     /// shadow a package's entry of the same id, or names Hex's icon in an
     /// entry Hex wrote with the generic one (#652). Returns the entry it wrote.
@@ -693,7 +693,7 @@ fn write_entry(applications: &Path, entry: &Path, contents: &str) -> Result<()> 
     Ok(())
 }
 
-/// `entry` with every `Icon=` naming Hex's icon (`anomaly.hex` in hicolor).
+/// `entry` with every `Icon=` naming Hex's icon (`dev.axl47.tiro` in hicolor).
 pub(crate) fn with_icon(entry: &str) -> String {
     let mut named = String::with_capacity(entry.len());
     for line in entry.lines() {
@@ -727,7 +727,8 @@ fn moved_entry(old: &str) -> String {
 /// `NoDisplay`, not `Hidden`: the portal refuses an app whose entry is Hidden.
 fn desktop_entry(executable: &str, hidden: bool) -> String {
     format!(
-        "[Desktop Entry]\nType=Application\nName=Hex\nComment=Local voice dictation\nExec={}\nIcon={APP_ID}\nTerminal=false\nCategories=Utility;Accessibility;\nStartupWMClass={APP_ID}\n{}{MANAGED_MARK}\n",
+        "[Desktop Entry]\nType=Application\nName={}\nComment=Local voice dictation\nExec={}\nIcon={APP_ID}\nTerminal=false\nCategories=Utility;Accessibility;\nStartupWMClass={APP_ID}\n{}{MANAGED_MARK}\n",
+        crate::app_paths::app_name(),
         exec_argument(executable),
         if hidden { "NoDisplay=true\n" } else { "" }
     )
@@ -1003,7 +1004,7 @@ mod kde_unapproved {
 }
 
 /// The KDE actions to remove before binding: every action of the pre-#579
-/// `hex` component, then every action under `anomaly.hex` that `keep` doesn't
+/// `hex` component, then every action under `dev.axl47.tiro` that `keep` doesn't
 /// name, the [`STALE_KDE_ACTIONS`] included. Each action is kglobalaccel's
 /// `[component, action, …]` id.
 fn superseded_kde_actions<'a>(
@@ -1100,7 +1101,7 @@ impl PortalProbe {
 const GNOME_SHORTCUTS: &str = "org.gnome.settings-daemon.global-shortcuts";
 
 /// Before #579 Hex registered with the portal as `hex`. GNOME Settings keeps
-/// that set listed beside `anomaly.hex`, and nothing can bind or clear it
+/// that set listed beside `dev.axl47.tiro`, and nothing can bind or clear it
 /// through the portal again (GNOME 49 and later refuse the id), so Hex removes
 /// it from GNOME's own settings once (#575). Only on GNOME, only that entry.
 pub(crate) fn forget_legacy_gnome_shortcuts() -> Result<()> {
@@ -1153,7 +1154,7 @@ pub(crate) fn desktop_takes_alt_space() -> bool {
 /// Whether the desktop assigns portal shortcuts their keys in its own
 /// configuration and describes no trigger in the portal's answer. Hyprland's
 /// portal returns an empty description for every shortcut, bound or not
-/// (`bind = …, global, anomaly.hex:…` in its config), so an empty one there
+/// (`bind = …, global, dev.axl47.tiro:…` in its config), so an empty one there
 /// is no refusal.
 pub(crate) fn desktop_assigns_triggers() -> bool {
     desktop_is("Hyprland")
@@ -1241,7 +1242,7 @@ mod tests {
         assert!(desktop_entry("/opt/hex", false).contains("\nExec=\"/opt/hex\"\n"));
         assert!(!desktop_entry("/opt/hex", false).contains("NoDisplay"));
         assert!(desktop_entry("/opt/hex", true).contains("\nNoDisplay=true\n"));
-        assert!(desktop_entry("/opt/hex", false).contains("\nStartupWMClass=anomaly.hex\n"));
+        assert!(desktop_entry("/opt/hex", false).contains("\nStartupWMClass=dev.axl47.tiro\n"));
     }
 
     #[test]
@@ -1249,7 +1250,7 @@ mod tests {
         let old = "[Desktop Entry]\nName=Hex\nExec=\"/home/a/.local/bin/hex\"\nStartupWMClass=hex\nX-Hex-Managed=true\n\n[Desktop Action quit]\nExec=\"/home/a/.local/bin/hex\" quit\n";
         assert_eq!(
             moved_entry(old),
-            "[Desktop Entry]\nStartupWMClass=anomaly.hex\nName=Hex\nExec=\"/home/a/.local/bin/hex\"\nX-Hex-Managed=true\n\n[Desktop Action quit]\nExec=\"/home/a/.local/bin/hex\" quit\n"
+            "[Desktop Entry]\nStartupWMClass=dev.axl47.tiro\nName=Hex\nExec=\"/home/a/.local/bin/hex\"\nX-Hex-Managed=true\n\n[Desktop Action quit]\nExec=\"/home/a/.local/bin/hex\" quit\n"
         );
     }
 
@@ -1280,8 +1281,8 @@ mod tests {
         .unwrap();
         entries.tidy().unwrap();
         let named = std::fs::read_to_string(entries.entry()).unwrap();
-        assert!(named.contains("\nIcon=anomaly.hex\n"), "{named}");
-        assert!(desktop_entry("/opt/hex", false).contains("\nIcon=anomaly.hex\n"));
+        assert!(named.contains("\nIcon=dev.axl47.tiro\n"), "{named}");
+        assert!(desktop_entry("/opt/hex", false).contains("\nIcon=dev.axl47.tiro\n"));
         // Someone else's entry keeps its icon.
         std::fs::write(entries.entry(), "[Desktop Entry]\nIcon=mine\n").unwrap();
         entries.tidy().unwrap();
@@ -1301,7 +1302,7 @@ mod tests {
         assert!(!entries.applications.join("hex.desktop").exists());
         let moved = std::fs::read_to_string(entries.entry()).unwrap();
         assert!(moved.contains("Exec=\"/home/a/.local/bin/hex\"\n"));
-        assert!(moved.contains("StartupWMClass=anomaly.hex\n"));
+        assert!(moved.contains("StartupWMClass=dev.axl47.tiro\n"));
         std::fs::remove_dir_all(root).unwrap();
     }
 
@@ -1356,7 +1357,7 @@ mod tests {
         );
         // A package ships Hex's entry now: the stranded fallback goes.
         std::fs::write(
-            entries.system[0].join("anomaly.hex.desktop"),
+            entries.system[0].join("dev.axl47.tiro.desktop"),
             "[Desktop Entry]\n",
         )
         .unwrap();
@@ -1393,7 +1394,7 @@ mod tests {
         std::fs::remove_dir_all(root).unwrap();
         let (root, provided) = entries("provided");
         std::fs::write(
-            provided.system[0].join("anomaly.hex.desktop"),
+            provided.system[0].join("dev.axl47.tiro.desktop"),
             "[Desktop Entry]\n",
         )
         .unwrap();
@@ -1421,7 +1422,7 @@ mod tests {
         assert_eq!(entries.ensure("/opt/hex").unwrap(), None);
         assert!(entries.entry().exists());
         std::fs::write(
-            entries.system[0].join("anomaly.hex.desktop"),
+            entries.system[0].join("dev.axl47.tiro.desktop"),
             "[Desktop Entry]\n",
         )
         .unwrap();

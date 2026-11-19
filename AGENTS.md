@@ -17,6 +17,8 @@ Landing: commit on `dev` and push `origin/dev`. No PR.
 - Install the Mac app with `TIRO_CODESIGN_IDENTITY` set to the local code-signing identity (`security find-identity -v -p codesigning`); an ad-hoc signed install loses Microphone and Accessibility, so the listener (and `/streams`) waits for setup.
 - Android accessibility services (`VolumeKeyDictation`) unbind while agent-device or `uiautomator` holds UiAutomation, and turn off on a force stop (`open --relaunch`): close agent-device and press keys through a `uinput` device.
 - Keep recordings' archive (`src/history/archive.rs`) sends over the ssh alias `tiro-box` (key-only, pinned host key); without it, recordings wait in `recordings-outbox/`.
+- Over ssh, `hex start` fails ("Start Hex from your graphical login session") until `WAYLAND_DISPLAY`, `DISPLAY`, and `XDG_CURRENT_DESKTOP` are exported from `systemctl --user show-environment`.
+- Umbriel (compositor) delivers no portal shortcut while its config binds a lone modifier key such as `"Alt_R"`: it logs `[global-shortcuts] could not configure global shortcuts`, and shortcuts look bound but never activate.
 - `/transcriptions` refuses a model without its `.verified.json` receipt (`409 model-not-ready`), even one dictation uses; a hand-copied model needs `POST /models/<id>/prepare` once.
 
 # Hex Agent Guide

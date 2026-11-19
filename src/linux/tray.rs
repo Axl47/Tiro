@@ -26,7 +26,7 @@ pub(crate) fn start(
 ) -> Option<rune::Tray> {
     let view = TrayView::default();
     let icon = rune::TrayIcon::rgba(ICON_SIZE, ICON_SIZE, ICON_RGBA.to_vec());
-    let spec = rune::TraySpec::new("hex", "Hex", icon)
+    let spec = rune::TraySpec::new("hex", crate::app_paths::app_name(), icon)
         .tooltip(view.tooltip())
         .menu(view.menu());
     let show = move |token| {

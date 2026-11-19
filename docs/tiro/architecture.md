@@ -140,6 +140,30 @@ build is a local build, which never checks Hex's update channel.
 Cleanup lives under Labs because that gives it a switch, a CLI, and a settings key for
 a few lines, not because it is experimental. It is the one feature on by default.
 
+## On Linux
+
+Tiro runs on Linux as Hex's Linux beta does, under its own identity so it never
+meets an installed Hex:
+
+| | Hex | Tiro |
+| --- | --- | --- |
+| App id (portal, window class, icon, desktop entries) | `anomaly.hex` | `dev.axl47.tiro` |
+| Command | `~/.local/bin/hex` | `~/.local/bin/tiro` |
+| systemd user unit | `hex.service` | `tiro.service` |
+| Data root | `~/.local/share/hex` | `~/.local/share/tiro` |
+| Config | `~/.config/hex` | `~/.config/tiro` |
+
+The executable keeps its internal name, `hex`, inside the data root's version
+layout (`current/hex`), as the binary inside `Tiro.app` does. `scripts/install-linux.sh`
+builds from the checkout and installs that layout, the desktop and autostart entries,
+and the unit; Hex's release installer stays untouched. Run it again to update; it
+never checks a release channel.
+
+The portal keys global shortcuts by app id, so Tiro's never replace Hex's. The
+service counts `~/.local/share/tiro` as its default data root, so it adopts the
+session's Wayland display as Hex's does. Cleanup has no model engine on Linux yet and
+runs its deterministic residue pass.
+
 ## Keeping up with upstream
 
 ```sh

@@ -1,5 +1,5 @@
 //! Launch at login on Linux: the XDG autostart entry
-//! `~/.config/autostart/anomaly.hex.desktop`, named for Hex's app id, the
+//! `~/.config/autostart/dev.axl47.tiro.desktop`, named for Hex's app id, the
 //! same managed file the installer writes. Hex only replaces or removes an entry that carries its
 //! `X-Hex-Managed=true` mark; the file on disk is the only state.
 
@@ -128,8 +128,8 @@ fn move_legacy_entry_in(directory: &Path) -> Result<()> {
 }
 
 /// Whether the desktop starts Hex at login: its autostart entry, or a user
-/// target that wants `hex.service`, as the Home Manager module's `autostart`
-/// or `systemctl --user enable hex.service` sets up (#1164).
+/// target that wants `tiro.service`, as the Home Manager module's `autostart`
+/// or `systemctl --user enable tiro.service` sets up (#1164).
 pub fn is_enabled() -> Result<bool> {
     if service_enabled() {
         return Ok(true);
@@ -156,10 +156,11 @@ pub fn set_enabled(enabled: bool) -> Result<()> {
         if enabled {
             return Ok(());
         }
+        let unit = crate::linux::service::UNIT;
         bail!(
-            "Hex starts at login through its systemd user service (hex.service); \
+            "Hex starts at login through its systemd user service ({unit}); \
              turn it off where it was enabled, such as programs.hex.autostart in \
-             Home Manager or `systemctl --user disable hex.service`"
+             Home Manager or `systemctl --user disable {unit}`"
         );
     }
     let path = entry_path()?;
@@ -216,7 +217,7 @@ pub fn announce_background() {
     }
 }
 
-/// Whether a user target in `~/.config/systemd/user` wants `hex.service`:
+/// Whether a user target in `~/.config/systemd/user` wants `tiro.service`:
 /// the link `systemctl --user enable` and Home Manager's `WantedBy` leave.
 fn service_enabled() -> bool {
     dirs::config_dir()
@@ -232,7 +233,7 @@ fn service_enabled_in(units: &Path) -> bool {
             .file_name()
             .to_str()
             .is_some_and(|name| name.ends_with(".wants"))
-            && fs::symlink_metadata(entry.path().join("hex.service")).is_ok()
+            && fs::symlink_metadata(entry.path().join(crate::linux::service::UNIT)).is_ok()
     })
 }
 
@@ -404,13 +405,14 @@ fn entry(executable: &Path) -> String {
     format!(
         "[Desktop Entry]\n\
          Type=Application\n\
-         Name=Hex\n\
+         Name={}\n\
          Comment=Local voice dictation\n\
          Exec={} start\n\
          Icon={}\n\
          Terminal=false\n\
          X-GNOME-Autostart-enabled=true\n\
          {MANAGED_MARK}\n",
+        crate::app_paths::app_name(),
         crate::linux::portal::exec_argument(&executable.to_string_lossy()),
         crate::linux::portal::APP_ID,
     )
@@ -470,9 +472,9 @@ mod tests {
         let root = std::env::temp_dir().join(format!("hex-login-link-{}", std::process::id()));
         fs::create_dir_all(&root).unwrap();
         let target = root.join("target.desktop");
-        fs::write(&target, "[Desktop Entry]\nX-XDP-Autostart=anomaly.hex\n").unwrap();
+        fs::write(&target, "[Desktop Entry]\nX-XDP-Autostart=dev.axl47.tiro\n").unwrap();
         assert!(ours(&read(&target).unwrap().unwrap()));
-        let link = root.join("anomaly.hex.desktop");
+        let link = root.join("dev.axl47.tiro.desktop");
         std::os::unix::fs::symlink(&target, &link).unwrap();
         assert!(!ours(&read(&link).unwrap().unwrap()));
         assert_eq!(read(&root.join("missing.desktop")).unwrap(), None);
@@ -488,7 +490,7 @@ mod tests {
         let directory = std::env::temp_dir().join(format!("hex-autostart-{unique}"));
         fs::create_dir_all(&directory).unwrap();
         let legacy = directory.join("hex.desktop");
-        let entry = directory.join("anomaly.hex.desktop");
+        let entry = directory.join("dev.axl47.tiro.desktop");
         fs::write(
             &legacy,
             "[Desktop Entry]\nExec=hex start\nX-Hex-Managed=true\n",
@@ -514,7 +516,7 @@ mod tests {
         assert!(
             fs::read_to_string(&entry)
                 .unwrap()
-                .contains("\nIcon=anomaly.hex\n")
+                .contains("\nIcon=dev.axl47.tiro\n")
         );
         fs::remove_dir_all(directory).unwrap();
     }
@@ -533,7 +535,7 @@ mod tests {
         fs::create_dir_all(&directory).unwrap();
         let launcher = directory.join("hex");
         fs::write(&launcher, "").unwrap();
-        let path = directory.join("anomaly.hex.desktop");
+        let path = directory.join("dev.axl47.tiro.desktop");
         // A downloaded binary that has since moved.
         fs::write(&path, entry(&directory.join("Downloads/hex"))).unwrap();
         refresh_in(&directory, &launcher).unwrap();
@@ -555,12 +557,16 @@ mod tests {
         let units = std::env::temp_dir().join(format!("hex-login-units-{unique}"));
         assert!(!service_enabled_in(&units));
         fs::create_dir_all(&units).unwrap();
-        fs::write(units.join("hex.service"), "[Unit]\n").unwrap();
+        fs::write(units.join(crate::linux::service::UNIT), "[Unit]\n").unwrap();
         assert!(!service_enabled_in(&units));
         let wants = units.join("graphical-session.target.wants");
         fs::create_dir_all(&wants).unwrap();
         assert!(!service_enabled_in(&units));
-        std::os::unix::fs::symlink(units.join("hex.service"), wants.join("hex.service")).unwrap();
+        std::os::unix::fs::symlink(
+            units.join(crate::linux::service::UNIT),
+            wants.join(crate::linux::service::UNIT),
+        )
+        .unwrap();
         assert!(service_enabled_in(&units));
         fs::remove_dir_all(units).unwrap();
     }

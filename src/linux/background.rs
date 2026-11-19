@@ -1,7 +1,7 @@
 //! The desktop's Background portal (`org.freedesktop.portal.Background`,
 //! #812): Hex tells the desktop it runs in the background, and where the
 //! portal exists it owns Launch at login. Asked to, the portal writes or
-//! removes `~/.config/autostart/anomaly.hex.desktop` itself, the entry
+//! removes `~/.config/autostart/dev.axl47.tiro.desktop` itself, the entry
 //! [`crate::linux::login_item`] writes on desktops without it. Every request
 //! also sets autostart, and turning it off removes that file, so Hex asks
 //! only while the file is absent or its own.
