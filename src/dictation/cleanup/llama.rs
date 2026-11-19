@@ -31,6 +31,31 @@ const CONTEXT_TOKENS: u32 = 8192;
 /// shaders (about 15 s on an M1 Pro), and a slow disk reads the weights.
 const START_LIMIT: Duration = Duration::from_secs(180);
 
+/// Runs the server (`"$@"`) and lives exactly as long as it: stops it once
+/// Tiro's end of stdin closes, and exits when it exits, so a dead server
+/// shows as an exited child. Background jobs read /dev/null in a
+/// non-interactive shell, so the pipe is kept on fd 3 for the reader.
+const WRAPPER: &str = r#"exec 3<&0
+"$@" 3<&- & server=$!
+{ while read -r _; do :; done <&3; kill $server 2>/dev/null; } & reader=$!
+trap 'kill $server $reader 2>/dev/null' EXIT HUP TERM
+wait $server"#;
+
+/// Warm-up dictations: one per size a real one comes in, so the GPU kernels
+/// for each prompt batch shape are built before any dictation needs them.
+const WARM_WORDS: [usize; 3] = [12, 120, 400];
+const WARM_SENTENCE: &str = "um so I think we should run the tests and then, uh, push the branch";
+const WARM_VOCABULARY: &str = "Tiro, Hex, Rune, Linux, Hyprland, GNOME, \
+    Wayland, PipeWire, Vulkan, Metal, llama.cpp, GGUF, Parakeet, Phonon, Vedu, \
+    Scribe, OpenCode, Convex, Tailwind, React, Vite, pnpm, Zustand, TanStack, \
+    Clerk, ArkType, TypeScript, Rust, cargo, clippy, nextest, rustfmt, GitHub, \
+    origin/dev, pull request, commit, rebase, merge, worktree, Xcode, SwiftUI, \
+    MLX, CoreAudio, AppKit, Accessibility, Android, Kotlin, Gradle, systemd, \
+    journalctl, ssh, tmux, Neovim, Ghostty, T3 Code, Claude, Sonnet, Haiku, \
+    Opus, Codex, Docker, Kubernetes, Cloudflare, Worker, R2, SQLite, Postgres, \
+    Redis, JSON, YAML, TOML, HTTP, WebSocket, OAuth, API key, localhost, \
+    benchmark, latency, transcript";
+
 /// A pinned download: `(url, bytes, sha256)`.
 type Pin = (&'static str, u64, &'static str);
 
@@ -130,9 +155,7 @@ impl Server {
         let key = random_key()?;
         let mut child = crate::desktop::background_process::command("/bin/sh")
             .arg("-c")
-            .arg(
-                r#""$@" & server=$!; trap 'kill $server 2>/dev/null' EXIT HUP TERM; while read -r _; do :; done"#,
-            )
+            .arg(WRAPPER)
             .arg("tiro-cleanup")
             .arg(&binary)
             .args(["--model".as_ref(), weights.as_os_str()])
@@ -188,17 +211,28 @@ impl Server {
         Ok(())
     }
 
-    /// Waits until the server answers, then runs two short completions, so no
-    /// dictation is the one that loads the weights into memory and runs cold.
+    /// Waits until the server answers, then cleans a dictation of each size in
+    /// [`WARM_WORDS`] under a full vocabulary, so no real dictation is the one
+    /// that loads the weights or builds a kernel (seconds on a first Vulkan run).
     fn warm(&mut self) -> Result<()> {
         let never = AtomicBool::new(false);
-        let prompt = Prompt {
-            system: "Clean up this dictation.",
-            user: "um so can you run the tests and then, uh, push it",
-            budget: |tokens| tokens + 16,
-        };
+        let system =
+            format!("Clean up this dictation.\nVocabulary the speaker may use: {WARM_VOCABULARY}");
+        let words: Vec<&str> = WARM_SENTENCE.split_whitespace().collect();
         let started = Instant::now();
-        for _ in 0..2 {
+        for count in WARM_WORDS {
+            let user = words
+                .iter()
+                .cycle()
+                .take(count)
+                .copied()
+                .collect::<Vec<_>>()
+                .join(" ");
+            let prompt = Prompt {
+                system: &system,
+                user: &user,
+                budget: |_| 16,
+            };
             self.complete(&prompt, started + START_LIMIT, &never)
                 .map_err(|fallback| eyre!("warming up: {fallback:?}"))?;
         }
@@ -208,6 +242,10 @@ impl Server {
             "cleanup server warm"
         );
         Ok(())
+    }
+
+    fn running(&mut self) -> bool {
+        matches!(self.child.try_wait(), Ok(None))
     }
 
     fn complete(
@@ -260,7 +298,7 @@ impl Server {
 
 impl Drop for Server {
     fn drop(&mut self) {
-        // Closing the pipe ends the shell's loop; its trap stops the server.
+        // Closing the pipe ends the shell's reader, which stops the server.
         drop(self.stdin.take());
         let deadline = Instant::now() + Duration::from_secs(2);
         while Instant::now() < deadline {
@@ -347,6 +385,17 @@ fn slot() -> MutexGuard<'static, Option<Server>> {
     SERVER.lock().unwrap_or_else(|error| error.into_inner())
 }
 
+/// Whether `slot` holds `model`'s server, still running. One that exited (a
+/// crash, or killed) is dropped, so the next [`prepare`] starts another.
+fn holds(slot: &mut Option<Server>, model: &Gguf) -> bool {
+    if slot.as_mut().is_some_and(|server| !server.running()) {
+        tracing::warn!("cleanup server exited; starting it again");
+        *slot = None;
+    }
+    slot.as_ref()
+        .is_some_and(|server| server.model == model.file)
+}
+
 /// Gets `model`'s server warm without holding up the caller: downloads what is
 /// missing, then starts it. Cheap once it is up.
 pub(super) fn prepare(model: &'static Gguf) {
@@ -354,14 +403,12 @@ pub(super) fn prepare(model: &'static Gguf) {
     // inference: locked means a server exists, so never wait for it.
     match SERVER.try_lock() {
         Err(TryLockError::WouldBlock) => return,
-        Ok(slot)
-            if slot
-                .as_ref()
-                .is_some_and(|server| server.model == model.file) =>
-        {
-            return;
+        Ok(mut slot) => {
+            if holds(&mut slot, model) {
+                return;
+            }
         }
-        _ => {}
+        Err(TryLockError::Poisoned(_)) => {}
     }
     if PREPARING.swap(true, Ordering::AcqRel) {
         return;
@@ -397,13 +444,12 @@ pub(super) fn complete(
     cancelled: &AtomicBool,
 ) -> Result<String, Fallback> {
     let by = Instant::now() + deadline;
-    let current = |slot: &Option<Server>| slot.as_ref().is_some_and(|s| s.model == model.file);
-    if !current(&slot()) {
+    if !holds(&mut slot(), model) {
         prepare(model);
     }
     // A press usually started the load already; give it the deadline, unless
     // it is a download, which takes minutes.
-    while !current(&slot()) {
+    while !holds(&mut slot(), model) {
         if DOWNLOADING.load(Ordering::Acquire) {
             return Err(Fallback::Unavailable("downloading".into()));
         }
@@ -534,17 +580,13 @@ mod tests {
     use super::*;
     use std::io::Write as _;
 
-    /// The wrapper must stop what it started once Tiro's end of the pipe closes.
+    /// Starts [`WRAPPER`] around a server that prints its pid and then runs
+    /// `then` (a shell command).
     #[cfg(unix)]
-    #[test]
-    fn closing_the_pipe_stops_the_server() {
+    fn wrapped(then: &str) -> (Child, String) {
         let mut child = crate::desktop::background_process::command("/bin/sh")
-            .arg("-c")
-            .arg(
-                r#""$@" & server=$!; echo $server; trap 'kill $server 2>/dev/null' EXIT HUP TERM; while read -r _; do :; done"#,
-            )
-            .arg("tiro-cleanup")
-            .args(["sleep", "30"])
+            .args(["-c", WRAPPER, "tiro-cleanup", "/bin/sh", "-c"])
+            .arg(format!("echo $$; {then}"))
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .spawn()
@@ -555,14 +597,43 @@ mod tests {
         while stdout.read(&mut byte).unwrap() == 1 && byte[0] != b'\n' {
             pid.push(byte[0] as char);
         }
+        (child, pid)
+    }
+
+    #[cfg(unix)]
+    fn exits_within(child: &mut Child, limit: Duration) -> bool {
+        let deadline = Instant::now() + limit;
+        while Instant::now() < deadline {
+            if child.try_wait().unwrap().is_some() {
+                return true;
+            }
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        false
+    }
+
+    /// The wrapper must stop what it started once Tiro's end of the pipe closes.
+    #[cfg(unix)]
+    #[test]
+    fn closing_the_pipe_stops_the_server() {
+        let (mut child, pid) = wrapped("exec sleep 30");
         child.stdin.take().unwrap().write_all(b"\n").unwrap();
         // The pipe closed when it was dropped above.
-        child.wait().unwrap();
+        assert!(exits_within(&mut child, Duration::from_secs(5)));
         let alive = std::process::Command::new("kill")
             .args(["-0", pid.trim()])
             .status()
             .unwrap()
             .success();
         assert!(!alive, "the server outlived its pipe");
+    }
+
+    /// A server that dies must show as an exited child while the pipe is open.
+    #[cfg(unix)]
+    #[test]
+    fn the_wrapper_exits_with_the_server() {
+        let (mut child, _) = wrapped("exit 3");
+        assert!(exits_within(&mut child, Duration::from_secs(5)));
+        assert!(child.stdin.is_some(), "the pipe stayed open");
     }
 }

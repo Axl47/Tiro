@@ -113,7 +113,13 @@ dependency was MLX, never the model.
 
 - **A child process, for the same reasons as `tiro-scribe`:** a Metal fault costs one
   cleanup, and the idle stop returns the memory. It listens on loopback behind a
-  per-launch key, under a shell that kills it when Tiro's end of a pipe closes.
+  per-launch key, under a shell that kills it when Tiro's end of a pipe closes and
+  exits when it dies, so a crashed server is noticed and restarted at the next
+  dictation.
+- **Warmed at real sizes:** after loading, it cleans dictations of 12, 120, and 400
+  words under a full vocabulary. With only a short warm-up, the first real
+  dictation after each start ran seconds late on Vulkan while kernels for the
+  larger batch shapes were built.
 - **Phonon's contract, not Tiro's** (`cleanup/phonon.rs`): its trained system turn,
   a writing mode from the app the text goes to, its vocabulary list and cap, output
   budget, length guard, and term restoration. Tiro's faithfulness check and residue
