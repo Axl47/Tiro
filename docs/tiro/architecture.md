@@ -161,8 +161,8 @@ never checks a release channel.
 
 The portal keys global shortcuts by app id, so Tiro's never replace Hex's. The
 service counts `~/.local/share/tiro` as its default data root, so it adopts the
-session's Wayland display as Hex's does. Cleanup has no model engine on Linux yet and
-runs its deterministic residue pass.
+session's Wayland display as Hex's does. Cleanup runs Vedu Scribe's GGUF, or Phonon's
+refiner, through the llama.cpp engine (see "Phonon's refiner through llama.cpp").
 
 ## Keeping up with upstream
 
