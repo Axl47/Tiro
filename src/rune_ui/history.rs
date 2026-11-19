@@ -784,7 +784,7 @@ fn detail(ui: &Ui, p: Paint, layer: &mut Vec<El>) -> El {
                             .gap(8.0)
                             .child(button(
                                 p,
-                                "save",
+                                "correction-save",
                                 tr("Save"),
                                 ButtonKind::Secondary,
                                 move |ui: &mut Ui, _| save_correction(ui, id),

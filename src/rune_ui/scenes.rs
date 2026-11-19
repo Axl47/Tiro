@@ -139,7 +139,8 @@ pub(super) const SCENES: &[Scene] = &[
     }),
     ("picker-downloading", |ui| {
         *ui = portal_fixture();
-        picker::fixture(ui, Some(TranscriptionModelId::CohereTranscribe));
+        // Tiro lists only English models (`ModelDefinition::offered`).
+        picker::fixture(ui, Some(TranscriptionModelId::ParakeetV2));
     }),
     // Labs › Parakeet Ultra: its card's details, credit, and published
     // benchmarks (lists Ultra only where the saved settings turn it on).
