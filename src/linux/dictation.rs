@@ -268,6 +268,21 @@ impl DictationOutput {
     }
 }
 
+/// Records the focused app as a dictation starts. Sentences cleaned while it
+/// records are reused only when the finish, which reads the app again, sees
+/// the same one.
+fn note_focus_for_cleanup() {
+    if !crate::dictation::cleanup::live::wanted() {
+        return;
+    }
+    let spawned = thread::Builder::new()
+        .name("cleanup-focus".into())
+        .spawn(|| crate::dictation::vocabulary::focus(&crate::linux::context::capture(false)));
+    if let Err(error) = spawned {
+        tracing::warn!(%error, "could not read the focused app for cleanup");
+    }
+}
+
 /// Runs hotkey dictation until `shutdown`. A prepared transcriber skips the
 /// model load; otherwise the supplied transcription selection is loaded here.
 /// `updates` change settings, the model, and shortcut registration in place.
@@ -301,6 +316,9 @@ pub(crate) fn run(
     let mut engine = Arc::new(TranscriptionEngine::start(transcriber)?);
     // The local API transcribes host audio on this engine's model.
     engine.share();
+    // Cleans finished sentences while a dictation records, so the finish
+    // only waits on the last one.
+    crate::dictation::cleanup::live::start();
     // Drop audio/hotkeys and close the job queue before joining slow output on
     // every exit, including failures during startup or recording.
     let mut output = OutputWorker {
@@ -779,6 +797,10 @@ pub(crate) fn run(
                         .is_some_and(|host| host.recording_since(&timeline).is_some()) => {}
                 HotkeyEvent::Start { raw } if !capture.is_recording() && !start_pending => {
                     recording_raw = raw;
+                    crate::dictation::cleanup::live::set_raw(raw);
+                    if !raw {
+                        note_focus_for_cleanup();
+                    }
                     let pressed_at = clock.at(Instant::now()).filter(|_| audio_ready);
                     if let Some(pressed_at) = pressed_at {
                         let pre_roll =
