@@ -151,6 +151,85 @@ in Rust (under 10 ms) and not idle wake-up or first-call cost, both of which wer
 Forcing its QoS class didn't help. GPU contention from the HUD or Parakeet is the likely
 suspect, but it hasn't been shown.
 
+## Phonon's refiner, and running off the Mac
+
+Measured 2026-11-19 with [`compare.py`](compare.py). The models compared:
+
+- **Tiro**: the full stage through `POST /cleanup` (Vedu Scribe 0.8B on MLX, plus its guards).
+- **Phonon**: [Phonon](https://github.com/infatoshi/phonon)'s refiner, an LFM3-1.7B fine-tune,
+  `phonon-refiner-1.7b-Q4_K_S-e4.gguf` at `f5e269a`. It runs with Phonon's prompt, writing
+  mode, output budget, length guard, and term restoration, and gets your vocabulary and
+  Tiro's built-in developer terms.
+- **Vedu GGUF**: Tiro's own pinned model (`7dced584`) converted to Q8_0 GGUF
+  (`sumitsah35/vedu-scribe-0.8b-gguf`), as the bare model.
+
+Both GGUFs ran on stock llama.cpp `b12132`, the release Phonon ships: Metal on the M1 Pro,
+and the Ubuntu Vulkan build on Omarchy with an RTX 4060.
+
+### Synthetic sets (hand-written references)
+
+| | Held-out error | Fillers | Main error | Fillers | Dropped |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Raw | 22.6% | 9 | 27.9% | 21 | 10/19 |
+| Tiro | 8.7% | 2 | **9.6%** | 8 | **19/19** |
+| Phonon | **6.3%** | **1** | 9.9% | **5** | 17/19 |
+| Vedu GGUF, bare | 10.0% | 3 | 17.8% | 11 | 16/19 |
+
+Phonon kept the retraction in "every keystroke. No, not every keystroke, it's when the
+debounce fires" as spoken. Tiro applied it, but broke the sentence.
+
+### Real dictations (History, 303 rows)
+
+The edits you made after a paste don't separate the models. Most of them fix misheard
+words or add new content, which no cleanup model can recover from the transcript: of 91
+short fixes, raw text already had 4, Phonon 3, and Vedu 1. The reference also starts as
+Tiro's output, so it scores closeness to Tiro.
+
+Instead, a blind A/B judge (Claude Sonnet, randomized order, faithfulness first) compared
+Tiro with Phonon on every row. Phonon ran in `prompt` mode for T3 Code and Annex, and in
+`minimal` for Phone. `casual`, its chat mode, writes lowercase and lost most Phone rows on
+casing alone.
+
+| | Phonon better | Tiro better | Tie or identical |
+| --- | ---: | ---: | ---: |
+| Desktop (195) | 38 (10 major) | 22 (6 major) | 135 |
+| Phone (108) | 26 (9 major) | 20 (5 major) | 62 |
+| **All (303)** | **64 (19 major)** | **42 (11 major)** | 197 |
+
+"Major" means a dropped clause or wrong word, not a cleanup or punctuation difference.
+Tiro's major losses include dropping the last two sentences of a long dictation and
+writing "Adobe Premiere" for "Eclipse". Phonon's include "3,999" heard as "3,990", "two
+threads with Opus" turned into "Opus 2, Threads", and kept retractions. Phonon left fewer
+fillers: 248 across History, against Tiro's 352.
+
+### Off the Mac
+
+The Mac dependency is MLX, not the model. Both GGUFs ran on Linux and wrote the same
+text as on the Mac (Phonon 293/303 rows identical, Vedu 296/303). The Vedu GGUF matched
+Tiro's MLX helper on 272/303 rows, and most of the rest differ by a comma. `sidecar::clean`
+off macOS is where a llama.cpp engine would plug in; the guards around it are Rust already.
+
+| Per dictation, History | p50 | p95 | Memory |
+| --- | ---: | ---: | ---: |
+| Tiro, M1 Pro (MLX + guards) | 575 ms | 1,599 ms | ~0.7 GB |
+| Phonon, M1 Pro (llama.cpp Metal) | 1,161 ms | 2,741 ms | ~1 GB |
+| Vedu GGUF, M1 Pro (llama.cpp Metal) | 824 ms | 2,350 ms | ~0.9 GB |
+| Phonon, RTX 4060 (Vulkan) | 455 ms | 1,199 ms | 1.1 GB VRAM |
+| Vedu GGUF, RTX 4060 (Vulkan) | 383 ms | 1,048 ms | 0.9 GB VRAM |
+
+The 4060 rows were timed from the Mac over an SSH tunnel on the LAN. None of these runs
+uses Phonon's own speedups, which refine while you speak and use its Metal and CUDA
+kernels. The refiner is under the LFM Open License v1.0, free below $10M in yearly revenue.
+
+```sh
+# llama.cpp b12132 release; any build that knows the lfm3 architecture works
+llama-server -m phonon-refiner-1.7b-Q4_K_S-e4.gguf --port 18731 -ngl 99 -c 8192 --jinja &
+llama-server -m vedu-scribe-0.8b-Q8_0.gguf --port 18732 -ngl 99 -c 8192 --jinja &
+benchmarks/cleanup/compare.py --set history --out "$(mktemp -d)" \
+  --tiro "$HOME/Library/Application Support/tiro" \
+  --phonon http://127.0.0.1:18731 --scribe http://127.0.0.1:18732
+```
+
 ## Run it
 
 ```sh
