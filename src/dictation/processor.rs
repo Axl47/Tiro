@@ -310,6 +310,15 @@ impl Profiles {
         self.select(context).vocabulary.clone()
     }
 
+    /// The vocabulary cleanup gets in `context`: the mode's terms, then the
+    /// shared list.
+    pub(crate) fn cleanup_vocabulary(&self, context: &ContextSnapshot) -> Vec<VocabularyEntry> {
+        crate::dictation::vocabulary::merged(
+            &self.select(context).vocabulary,
+            &crate::dictation::vocabulary::entries(),
+        )
+    }
+
     pub fn processes(&self, context: &ContextSnapshot) -> bool {
         let profile = self.select(context);
         crate::labs::scribe_cleanup() || profile.ai_enabled || !profile.transformations.is_empty()
@@ -322,39 +331,17 @@ impl Profiles {
         cancelled: &AtomicBool,
     ) -> Processed {
         let profile = self.select(context);
-        // Labs › Spoken formatting starts here, ahead of every mode's
-        // corrections, so it is off for raw dictation and meetings.
-        let formatted;
-        let transcript = if crate::labs::spoken_formatting() {
-            formatted = crate::dictation::spoken_formatting::apply(transcript);
-            formatted.as_str()
-        } else {
-            transcript
-        };
-        // Labs › Spoken symbols, likewise ahead of the corrections.
-        let symbolized;
-        let transcript = if crate::labs::spoken_symbols() {
-            symbolized = crate::dictation::spoken_symbols::apply(transcript);
-            symbolized.as_str()
-        } else {
-            transcript
-        };
-        // Labs › Remove filler words, likewise ahead of the corrections.
-        let unfilled;
-        let transcript = if crate::labs::filler_words() {
-            unfilled = crate::dictation::filler_words::apply(transcript);
-            unfilled.as_str()
-        } else {
-            transcript
-        };
+        let transformed = labs_transforms(transcript);
+        let transcript = transformed.as_str();
         // Scribe rewrites casing, so the person's exact corrections run after it.
         let scribed;
         let transcript = if crate::labs::scribe_cleanup() {
-            let vocabulary = crate::dictation::vocabulary::merged(
-                &profile.vocabulary,
-                &crate::dictation::vocabulary::entries(),
+            scribed = crate::dictation::cleanup::live::finish(
+                transcript,
+                &self.cleanup_vocabulary(context),
+                context.application.as_deref(),
+                cancelled,
             );
-            scribed = crate::dictation::cleanup::apply(transcript, &vocabulary, cancelled);
             tracing::info!(
                 profile = profile.name,
                 latency_ms = scribed.latency.as_millis() as u64,
@@ -426,6 +413,23 @@ impl Profiles {
             transformations: profile.transformations.clone(),
         }
     }
+}
+
+/// The Labs text transforms every mode's processing starts with, ahead of
+/// cleanup and the corrections, so they are off for raw dictation and
+/// meetings: Spoken formatting, Spoken symbols, then Remove filler words.
+pub(crate) fn labs_transforms(transcript: &str) -> String {
+    let mut text = transcript.to_owned();
+    if crate::labs::spoken_formatting() {
+        text = crate::dictation::spoken_formatting::apply(&text);
+    }
+    if crate::labs::spoken_symbols() {
+        text = crate::dictation::spoken_symbols::apply(&text);
+    }
+    if crate::labs::filler_words() {
+        text = crate::dictation::filler_words::apply(&text);
+    }
+    text
 }
 
 /// Whether a transcript says nothing but numbers: digits or English number

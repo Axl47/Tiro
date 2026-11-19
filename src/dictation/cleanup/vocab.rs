@@ -143,6 +143,26 @@ fn closeness(term: &str, sounds_like: &[String], spoken: &[String]) -> Option<us
     best
 }
 
+/// Every term, the person's own first, then the built-in ones, at most `limit`.
+/// Phonon's refiner was trained on lists like this, with unrelated terms in them,
+/// so it gets the list as a whole rather than a pre-match.
+pub fn ranked(entries: &[VocabularyEntry], limit: usize) -> Vec<String> {
+    let mut chosen: Vec<String> = Vec::new();
+    for term in entries
+        .iter()
+        .map(|entry| entry.term.as_str())
+        .chain(DEVELOPER_TERMS.iter().copied())
+    {
+        if chosen.len() == limit {
+            break;
+        }
+        if !chosen.iter().any(|seen| seen.eq_ignore_ascii_case(term)) {
+            chosen.push(term.to_owned());
+        }
+    }
+    chosen
+}
+
 /// The terms to send for `transcript`, the person's own first, then closest.
 pub fn select(transcript: &str, entries: &[VocabularyEntry]) -> Vec<String> {
     let spoken: Vec<String> = transcript

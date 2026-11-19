@@ -18,6 +18,9 @@ const READ_TIMEOUT: Duration = Duration::from_secs(5);
 #[derive(Deserialize)]
 struct Request {
     text: String,
+    /// The app the text is for, which picks Phonon's writing mode.
+    #[serde(default)]
+    app: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -53,6 +56,7 @@ pub(super) fn handle(
     let cleaned = crate::dictation::cleanup::apply(
         &request.text,
         &crate::dictation::vocabulary::entries(),
+        request.app.as_deref(),
         shutdown,
     );
     HttpResponse::json(

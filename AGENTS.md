@@ -133,10 +133,13 @@ substitute for source inspection or a second roadmap.
   assertion on macOS, a logind `idle:sleep` inhibitor (only `idle` where
   polkit refuses a process outside the seat session) on Linux, and a
   system-required power request on Windows.
-- `dictation/cleanup`: Tiro's Vedu Scribe stage, ahead of the corrections: spoken
-  paths, a vocabulary pre-match, the `tiro-scribe` process (`native/scribe`), a
-  faithfulness check, and deterministic residue removal, which is also its fallback.
-  `POST /cleanup` exposes it.
+- `dictation/cleanup`: Tiro's cleanup stage, ahead of the corrections: spoken
+  paths, the vocabulary, a model (Vedu Scribe through the `tiro-scribe` process,
+  `native/scribe`, on macOS; Phonon's refiner, or Vedu off macOS, as GGUF through a
+  pinned `llama-server` child, `cleanup/llama`), a faithfulness check, and
+  deterministic residue removal, which is also its fallback. `cleanup/live` cleans a
+  dictation's sentences from its live text while it records, and the finish reuses
+  only sentences the final transcript has exactly. `POST /cleanup` exposes it.
 - `history/corrections`: Tiro's Labs › Save corrections (macOS): after a paste, follows only the pasted span from the field's length and caret, and saves what became of it. Never reads a secure field.
 - `lan`: Tiro's opt-in LAN front for `android/` (Labs › LAN dictation): TLS with a
   pinned self-signed certificate, per-device tokens from `hex lan pair`, and an

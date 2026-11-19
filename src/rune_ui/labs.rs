@@ -626,6 +626,12 @@ fn rows(ui: &Ui) -> Vec<Row> {
         "Clean up each dictation on this Mac: fillers, false starts, and self-corrections go; technical terms stay",
     ));
     rows.push(row(
+        Feature::PhononCleanup,
+        None,
+        "Clean up with Phonon",
+        "Instead of Vedu Scribe: fewer fillers left, about 3× slower",
+    ));
+    rows.push(row(
         Feature::LanDictation,
         None,
         "LAN dictation",
@@ -785,6 +791,7 @@ fn row_key(lab: Lab) -> &'static str {
         Feature::SectionKeyAlone => "lab-section-key",
         Feature::KeepRecordings => "lab-keep-recordings",
         Feature::SaveCorrections => "lab-save-corrections",
+        Feature::PhononCleanup => "lab-phonon-cleanup",
         Feature::HideMenuBarIcon => "lab-hide-menu-bar-icon",
         Feature::MovableMeetingCapsules => "lab-movable-meeting-capsules",
         Feature::MeetingSummaryModel => "lab-meeting-summary-model",

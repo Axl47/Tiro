@@ -230,6 +230,33 @@ benchmarks/cleanup/compare.py --set history --out "$(mktemp -d)" \
   --phonon http://127.0.0.1:18731 --scribe http://127.0.0.1:18732
 ```
 
+### In Tiro, cleaning while you speak
+
+Measured 2026-11-19 after Phonon moved into Tiro (Labs › Clean up with Phonon,
+`cleanup/llama.rs`), with Tiro's faithfulness check and residue after it, and with
+cleanup while recording (`cleanup/live.rs`) on for both models.
+
+Through `POST /cleanup` on the synthetic sets, Phonon in Tiro keeps what it scored
+alone: 6.3% held-out error against Vedu's 8.7%, and 9.7% against 9.6% on the main set,
+with 5 fillers left against 10. On 315 History rows it fell back twice, both on a
+spoken path it lost ("slash"), and whole-dictation latency was 1,161 ms p50 and
+2,935 ms p95 against Vedu's 575 and 1,599.
+
+`e2e.py` on the 10 spoken clips, through the real app: the time cleanup adds after
+release, once sentences cleaned while recording are reused.
+
+| Added after release | Median | Max | 67 s dictation |
+| --- | ---: | ---: | ---: |
+| Vedu Scribe | 307 ms | 849 ms | 322 ms (6 sentences reused, 20 words left) |
+| Phonon | 933 ms | 1,524 ms | 799 ms (6 reused, 20 left) |
+
+Without cleaning while recording, the 67 s dictation's whole cleanup takes about
+3 s with Phonon. A second Phonon run, on a heavily loaded Mac, had a median of
+1,120 ms; one clip's stream fell back to the whole clip, so nothing could be reused
+and its 300 words took 4.8 s. Vedu stays the default on the Mac: Phonon's gains are
+real but modest, and it triples the wait. On Linux there is no MLX, so both run
+through llama.cpp.
+
 ## Run it
 
 ```sh
@@ -245,7 +272,7 @@ benchmarks/cleanup/bench.py --helper target/app/Tiro.app/Contents/Helpers/tiro-s
 benchmarks/cleanup/bench.py --variants "" --api "$HOME/Library/Application Support/tiro" \
   --inputs benchmarks/cleanup/results-2026-11-05/streamed-transcripts.json --repeats 1
 
-# Through the real app, in its own data folder
+# Through the real app, in its own data folder (--phonon for Phonon's refiner)
 benchmarks/cleanup/e2e.py --app target/app/Tiro.app --clips "$CLIPS" --models "$MODELS" \
   --work "$(mktemp -d)" --vocabulary
 ```

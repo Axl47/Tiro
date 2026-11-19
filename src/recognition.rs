@@ -326,6 +326,7 @@ pub fn listen(
     let mut events = events;
     let input_monitor = InputMonitor::start()?;
     let context_monitor = ContextMonitor::start();
+    crate::dictation::cleanup::live::start();
     let mut context = ContextSnapshot::default();
     let mut hotkeys = Hotkeys {
         dictation: DictationHotkey::new(
@@ -904,6 +905,7 @@ pub fn listen(
             for (shortcut, action) in hotkeys.process(input_event, capture_at) {
                 if action == HotkeyAction::Start {
                     hotkeys.raw_capture = shortcut == Shortcut::Raw;
+                    crate::dictation::cleanup::live::set_raw(hotkeys.raw_capture);
                 }
                 let accepted = handle_hotkey_action(
                     action,
@@ -1479,6 +1481,7 @@ fn control_dictation(
                 ));
             }
             hotkeys.raw_capture = raw;
+            crate::dictation::cleanup::live::set_raw(raw);
             let accepted = handle_hotkey_action(
                 HotkeyAction::Start,
                 raw,

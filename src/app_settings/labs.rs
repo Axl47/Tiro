@@ -70,6 +70,8 @@ pub struct LabsSettings {
     pub keep_recordings: bool,
     /// Tiro: read back what became of a pasted dictation.
     pub save_corrections: bool,
+    /// Tiro: Phonon's refiner cleans instead of Vedu Scribe.
+    pub phonon_cleanup: bool,
     pub hide_menu_bar_icon: bool,
     pub movable_meeting_capsules: bool,
     pub meeting_summary_model: bool,
@@ -137,6 +139,7 @@ impl Default for LabsSettings {
             section_key_alone: false,
             keep_recordings: false,
             save_corrections: true,
+            phonon_cleanup: false,
             hide_menu_bar_icon: false,
             movable_meeting_capsules: false,
             meeting_summary_model: false,

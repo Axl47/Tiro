@@ -43,6 +43,7 @@ def main():
     parser.add_argument("--work", required=True)
     parser.add_argument("--only", help="comma-separated clip ids")
     parser.add_argument("--vocabulary", action="store_true", help="dictate with VOCABULARY set")
+    parser.add_argument("--phonon", action="store_true", help="clean up with Phonon's refiner")
     args = parser.parse_args()
 
     hex_binary = str(Path(args.app).resolve() / "Contents/MacOS/hex")
@@ -58,8 +59,10 @@ def main():
         (data / "models").symlink_to(Path(args.models).resolve())
         # The release-microphone mode opens the fixture at its start on each
         # press, so the recording lines up with the clip instead of its loop.
-        (data / "settings.json").write_text(json.dumps(
-            {"release_microphone_while_idle": True, "vocabulary": VOCABULARY if args.vocabulary else []}))
+        settings = {"release_microphone_while_idle": True, "vocabulary": VOCABULARY if args.vocabulary else []}
+        if args.phonon:
+            settings["labs"] = {"phonon_cleanup": True}
+        (data / "settings.json").write_text(json.dumps(settings))
         env = dict(os.environ, HEX_APPLICATION_SUPPORT_DIR=str(data), HEX_AUDIO_FIXTURE=clip["audio"])
         app = subprocess.Popen([hex_binary, "app"], env=env,
                                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -72,8 +75,8 @@ def main():
             log = data / "logs/process.log"
             for _ in range(240):
                 text = log.read_text() if log.exists() else ""
-                if "loaded transcription model" in text and subprocess.run(
-                    ["pgrep", "-f", "Helpers/tiro-scribe"], capture_output=True).returncode == 0:
+                ready = ("cleanup server warm" if args.phonon else "cleanup helper starting") in text
+                if "loaded transcription model" in text and ready:
                     break
                 time.sleep(0.25)
             time.sleep(4)  # the helper warms itself after it spawns
@@ -92,10 +95,14 @@ def main():
             text, cleaned_ms = dictate()
             stripped = re.sub(r"\x1b\[[0-9;]*m", "", log.read_text())
             cleanup = re.findall(r"dictation cleanup finished.*?latency_ms=(\d+) fallback=(\S+)", stripped)
+            # Sentences cleaned while recording that the finish reused.
+            reused = re.findall(r"dictation cleanup reused.*?reused=(\d+) rest_words=(\d+)", stripped)
             result = dict(id=clip["id"], speechSeconds=round(seconds - 1, 1),
                           rawStopToTextMs=raw_ms, cleanedStopToTextMs=cleaned_ms,
                           cleanupMs=int(cleanup[-1][0]) if cleanup else None,
-                          fallback=cleanup[-1][1] if cleanup else None, raw=raw, text=text)
+                          fallback=cleanup[-1][1] if cleanup else None,
+                          reused=int(reused[-1][0]) if reused else None,
+                          restWords=int(reused[-1][1]) if reused else None, raw=raw, text=text)
             results.append(result)
             print(json.dumps(result), flush=True)
         finally:

@@ -222,6 +222,7 @@ mod tests {
             .read_to_string(&mut answer)
             .unwrap();
         server.join().unwrap();
+        client.wait().unwrap();
         std::fs::remove_dir_all(&dir).ok();
         assert!(answer.starts_with("HTTP/1.1 4"), "{answer}");
     }

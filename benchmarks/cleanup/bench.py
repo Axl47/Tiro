@@ -79,10 +79,11 @@ class Pipeline:
         self.url = f"http://127.0.0.1:{api['port']}/cleanup"
         self.token = api["token"]
 
-    def clean(self, text):
+    def clean(self, text, app=None):
+        body = {"text": text} if app is None else {"text": text, "app": app}
         request = urllib.request.Request(
             self.url,
-            data=json.dumps({"text": text}).encode(),
+            data=json.dumps(body).encode(),
             headers={"authorization": f"Bearer {self.token}", "content-type": "application/json"},
         )
         started = time.perf_counter()
@@ -92,14 +93,14 @@ class Pipeline:
         return reply
 
 
-# Mirrors `CORRECTIONS` in `src/lan/stream.rs`: a sentence opening with one stays with
+# Mirrors `CORRECTIONS` in `src/dictation/cleanup/precleaned.rs`: a sentence opening with one stays with
 # the sentence before it, so cleanup still sees the retraction.
 CORRECTIONS = ["no", "nope", "wait", "actually", "sorry", "oops", "scratch", "i mean",
                "or", "rather", "not", "instead", "make that", "change that", "never mind"]
 
 
 def sentences(text):
-    """Split like `src/lan/stream.rs`: after `.`, `?` or `!` and the space that follows,
+    """Split like `src/dictation/cleanup/precleaned.rs`: after `.`, `?` or `!` and the space that follows,
     except before a sentence that opens with a correction, which stays with the one
     before it."""
     units = []

@@ -94,6 +94,7 @@ impl Category {
             | Feature::SpokenSymbols
             | Feature::FillerWords
             | Feature::ScribeCleanup
+            | Feature::PhononCleanup
             | Feature::LanDictation
             | Feature::VocabularyBiasing
             | Feature::PauseBrowser
@@ -172,6 +173,7 @@ impl Place {
             | Feature::SpokenSymbols
             | Feature::FillerWords
             | Feature::ScribeCleanup
+            | Feature::PhononCleanup
             | Feature::LanDictation
             | Feature::SaveCorrections
             | Feature::KeepOnClipboard

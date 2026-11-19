@@ -12,11 +12,9 @@ use super::Fallback;
 
 /// A warm helper holds about 750 MB; a dictation shortly after a press can wait
 /// for a reload of about 1.5 s, so a helper that stops being used does not stay.
-#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 const IDLE_LIMIT: Duration = Duration::from_secs(15 * 60);
 
 /// Pinned exactly: a new revision is a new benchmark.
-#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 pub(super) mod pinned {
     pub const REPOSITORY: &str = "heyvedu/vedu-scribe-0.8b";
     pub const REVISION: &str = "7dced5841c58d7d6e0118c4c123f222b35057871";
@@ -56,7 +54,6 @@ pub(super) mod pinned {
 }
 
 /// The weights' folder, named by revision so a new pin never mixes files.
-#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 fn model_dir() -> color_eyre::Result<PathBuf> {
     Ok(crate::transcription::models::models_dir()?
         .join(format!("vedu-scribe-{}", &pinned::REVISION[..8])))
@@ -64,21 +61,6 @@ fn model_dir() -> color_eyre::Result<PathBuf> {
 
 #[cfg(target_os = "macos")]
 pub use macos::{clean, prepare};
-
-/// No helper off macOS yet: MLX needs Apple silicon. Cleanup still strips
-/// residue there; a remote engine would plug in here.
-#[cfg(not(target_os = "macos"))]
-pub fn prepare() {}
-
-#[cfg(not(target_os = "macos"))]
-pub fn clean(
-    _transcript: &str,
-    _vocab: &[String],
-    _deadline: Duration,
-    _cancelled: &AtomicBool,
-) -> Result<String, Fallback> {
-    Err(Fallback::Unavailable("no cleanup engine on this OS".into()))
-}
 
 #[cfg(target_os = "macos")]
 mod macos {

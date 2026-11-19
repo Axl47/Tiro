@@ -392,8 +392,9 @@ pub struct TranscriptionEngine {
     /// Whether the loaded model can stream on its device.
     streams: Arc<AtomicBool>,
     /// Whether dictation streams publish their text as they go, asked as
-    /// each stream begins: Labs › Live text, or a
-    /// [`crate::dictation::live_text::Demand`].
+    /// each stream begins: Labs › Live text, a
+    /// [`crate::dictation::live_text::Demand`], or cleanup while recording
+    /// ([`crate::dictation::cleanup::live`]).
     live_text: fn() -> bool,
     held: Held,
     /// Whether the worker is running a dictation stream or finish.
@@ -555,7 +556,11 @@ impl TranscriptionEngine {
             stalled,
             requests,
             streams,
-            live_text: || crate::labs::live_text() || crate::dictation::live_text::demanded(),
+            live_text: || {
+                crate::labs::live_text()
+                    || crate::dictation::live_text::demanded()
+                    || crate::dictation::cleanup::live::wanted()
+            },
             held,
             dictating,
             next_stream: AtomicU64::new(0),

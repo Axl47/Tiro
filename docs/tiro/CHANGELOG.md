@@ -4,6 +4,10 @@
 
 ### Added
 
+- Cleanup works while you speak: each finished sentence is cleaned during the
+  recording, so after you stop Tiro only waits on the last one.
+- Labs › Clean up with Phonon swaps Vedu Scribe for Phonon's refiner: fewer fillers
+  left, about three times the wait. It downloads its model and llama.cpp on first use.
 - Android: hold volume-down to dictate into any keyboard's text field, Samsung
   Keyboard included, with a small status pill while it works.
 - Android: double-tap volume-down to dictate hands-free; press it once more to finish.

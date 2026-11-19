@@ -58,6 +58,7 @@ Feature             Pane  Toggle (settings.json, hex settings)   On: what it doe
 ├── Downloaded models only no labs.picker_downloaded   the picker's All speech models view can show only downloaded models, with the space Hex's copies take (#1018)
 ├── Keep recordings no    labs.keep_recordings         History entries keep their dictation audio; Transcribe again runs it through another installed model (#1032)
 ├── Save corrections yes labs.save_corrections        (Tiro, macOS capture) after a paste, reads back only the pasted span and saves what became of it beside the entry's text
+├── Clean up with Phonon no labs.phonon_cleanup      (Tiro) Phonon's refiner cleans instead of Vedu Scribe, through a pinned llama.cpp server
 ├── Hide menu bar icon no labs.hide_menu_bar_icon      (macOS) the menu-bar icon hides while no meeting is under way; shortcuts keep working, reopening Hex shows Settings (#1064)
 ├── Notch indicator no    labs.notch_indicator         (macOS) with the indicator at Top, the notch widens sideways in the Dynamic Island's compact style: an orange mic and level bars, the macOS spinner, a green checkmark; flat screens keep it below the menu bar
 ├── Movable meeting capsules no labs.movable_meeting_capsules (macOS) panel capsules (Meeting transcript ready, Recording automatically, offers, reminders) drag to another corner and show in the last one, shared with the recording capsule (#1093)
@@ -844,6 +845,35 @@ Checks: `history::corrections` tests, and `a_correction_typed_in_history...` in
 in TextEdit, T3 Code's composer, and Chrome's textarea, contenteditable, and password
 field. Not captured: Windows, Linux, and the phone, whose dictations make no History
 entry on the Mac. Not observed: a real send with Return, and an hour of daily use.
+
+Clean up with Phonon (`phonon-cleanup`, Tiro, every OS, off by default;
+`dictation/cleanup/llama.rs`, `phonon.rs`): a second cleanup model, for fewer
+leftover fillers at about three times the wait.
+
+```ts
+Labs › Clean up with Phonon on                // labs.phonon-cleanup
+├── First use -> download llama.cpp b12132 and the refiner GGUF, each checked by
+│   SHA-256, into the models folder; dictations meanwhile get residue-only text
+├── Start -> llama-server on loopback behind a per-launch key, warmed with two
+│   completions before any dictation uses it; stops after 15 idle minutes
+├── Each cleanup -> Phonon's system turn: writing mode from the app (prompt for
+│   terminals, editors, and agents; formal for mail; else minimal), your
+│   vocabulary then Tiro's developer terms; then its length guard and term
+│   restoration, then Tiro's faithfulness check and residue
+└── Off -> Vedu Scribe from the next dictation
+```
+
+Both models clean while recording (`dictation/cleanup/live.rs`): each sentence is
+cleaned once the next has begun, from the stream's committed text, and the finish
+reuses only sentences the final transcript has exactly, for the same app, model,
+and vocabulary. Dictate without processing cleans nothing.
+
+Checks: `cleanup::phonon`, `cleanup::precleaned`, `cleanup::live`, and
+`closing_the_pipe_stops_the_server` in `cleanup::llama`. Observed 2026-11-19 on an
+M1 Pro: the first download and warm start, `POST /cleanup` on both sets and 315
+History rows, and `benchmarks/cleanup/e2e.py` through the real app with an audio
+fixture (`benchmarks/cleanup/README.md`). Not observed: a shortcut dictation that
+pastes, Linux, and the Labs page goldens with the new row.
 
 Keep recordings (`keep-recordings`, issue 1032, every OS): for hearing a
 dictation again through a different model.

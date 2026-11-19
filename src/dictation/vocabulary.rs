@@ -133,6 +133,15 @@ pub(crate) fn focus(context: &ContextSnapshot) {
         .unwrap_or_else(|error| error.into_inner()) = Some(context.clone());
 }
 
+/// The focused app and page, as the listener last recorded them.
+pub(crate) fn focused() -> Option<ContextSnapshot> {
+    FOCUS
+        .get_or_init(Default::default)
+        .read()
+        .unwrap_or_else(|error| error.into_inner())
+        .clone()
+}
+
 /// Runs `work` as a dictation's transcription on this thread: its runs hear
 /// with the focused mode's terms too. Meetings, captures, and other hosts'
 /// audio hear with the shared list alone.
@@ -154,11 +163,7 @@ fn transcription_entries() -> Vec<VocabularyEntry> {
     if !DICTATING.with(Cell::get) {
         return shared;
     }
-    let focused = FOCUS
-        .get_or_init(Default::default)
-        .read()
-        .unwrap_or_else(|error| error.into_inner())
-        .clone();
+    let focused = focused();
     #[cfg(target_os = "macos")]
     if let Some(context) = focused {
         let own = crate::dictation::config::dictation_profiles().vocabulary_for(&context);

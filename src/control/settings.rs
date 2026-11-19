@@ -410,6 +410,11 @@ const KEYS: &[Key] = &[
         "Labs: after pasting, read back only the pasted text, never password fields, and keep your edits beside it in History",
     ),
     key(
+        "labs.phonon_cleanup",
+        Kind::Bool,
+        "Labs: Phonon's refiner cleans dictations instead of Vedu Scribe (with labs.scribe_cleanup on)",
+    ),
+    key(
         "labs.history_stats",
         Kind::Bool,
         "Labs: a summary of retained dictations at the top of History, and hex history stats",

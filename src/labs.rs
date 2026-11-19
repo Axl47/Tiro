@@ -77,6 +77,7 @@ pub enum Feature {
     SpokenFormatting,
     FillerWords,
     ScribeCleanup,
+    PhononCleanup,
     LanDictation,
     SubtitleExport,
     SecondDictationShortcut,
@@ -115,7 +116,7 @@ pub enum Feature {
 }
 
 impl Feature {
-    pub const ALL: [Self; 53] = [
+    pub const ALL: [Self; 54] = [
         Self::Meetings,
         Self::VoiceFilter,
         Self::Playground,
@@ -134,6 +135,7 @@ impl Feature {
         Self::SpokenFormatting,
         Self::FillerWords,
         Self::ScribeCleanup,
+        Self::PhononCleanup,
         Self::LanDictation,
         Self::SubtitleExport,
         Self::SecondDictationShortcut,
@@ -210,6 +212,7 @@ impl Feature {
             | Self::SpokenFormatting
             | Self::FillerWords
             | Self::ScribeCleanup
+            | Self::PhononCleanup
             | Self::LanDictation
             | Self::SubtitleExport
             | Self::SecondDictationShortcut
@@ -304,6 +307,7 @@ impl Feature {
             | Self::FollowLiveTranscript
             | Self::CollapsibleMeetingSections
             | Self::AnnotateReplay => 20261104,
+            Self::PhononCleanup => 20261119,
         }
     }
 
@@ -396,7 +400,8 @@ impl Feature {
             | Self::FollowLiveTranscript
             | Self::CollapsibleMeetingSections
             | Self::FillerWords
-            | Self::ScribeCleanup => true,
+            | Self::ScribeCleanup
+            | Self::PhononCleanup => true,
         }
     }
 
@@ -421,6 +426,7 @@ impl Feature {
             Self::SpokenFormatting => "spoken-formatting",
             Self::FillerWords => "filler-words",
             Self::ScribeCleanup => "scribe-cleanup",
+            Self::PhononCleanup => "phonon-cleanup",
             Self::LanDictation => "lan-dictation",
             Self::SubtitleExport => "subtitle-export",
             Self::SecondDictationShortcut => "second-dictation-shortcut",
@@ -480,6 +486,7 @@ impl Feature {
             Self::SpokenFormatting => "labs.spoken_formatting",
             Self::FillerWords => "labs.filler_words",
             Self::ScribeCleanup => "labs.scribe_cleanup",
+            Self::PhononCleanup => "labs.phonon_cleanup",
             Self::LanDictation => "labs.lan_dictation",
             Self::SubtitleExport => "labs.subtitle_export",
             Self::SecondDictationShortcut => "labs.second_dictation_shortcut",
@@ -558,6 +565,7 @@ impl Feature {
             Self::ScribeCleanup => {
                 "Clean up each dictation on this Mac with Vedu Scribe: fillers, false starts, and self-corrections go; technical terms stay"
             }
+            Self::PhononCleanup => "Instead of Vedu Scribe: fewer fillers left, about 3× slower",
             Self::LanDictation => {
                 "Let paired phones dictate through this Mac over the local network; pair one here"
             }
@@ -690,6 +698,7 @@ impl Feature {
             Self::SpokenFormatting => settings.labs.spoken_formatting,
             Self::FillerWords => settings.labs.filler_words,
             Self::ScribeCleanup => settings.labs.scribe_cleanup,
+            Self::PhononCleanup => settings.labs.phonon_cleanup,
             Self::LanDictation => settings.labs.lan_dictation,
             Self::SubtitleExport => settings.labs.subtitle_export,
             Self::SecondDictationShortcut => settings.labs.second_dictation_shortcut,
@@ -751,6 +760,7 @@ impl Feature {
             &mut labs.spoken_formatting,
             &mut labs.filler_words,
             &mut labs.scribe_cleanup,
+            &mut labs.phonon_cleanup,
             &mut labs.lan_dictation,
             &mut labs.subtitle_export,
             &mut labs.second_dictation_shortcut,
@@ -814,6 +824,7 @@ impl Feature {
             Self::SpokenFormatting => settings.labs.spoken_formatting = on,
             Self::FillerWords => settings.labs.filler_words = on,
             Self::ScribeCleanup => settings.labs.scribe_cleanup = on,
+            Self::PhononCleanup => settings.labs.phonon_cleanup = on,
             Self::LanDictation => settings.labs.lan_dictation = on,
             Self::SubtitleExport => settings.labs.subtitle_export = on,
             Self::SecondDictationShortcut => settings.labs.second_dictation_shortcut = on,
@@ -898,8 +909,9 @@ const ANNOTATE_REPLAY: u64 = 1 << 31;
 const SCRIBE_CLEANUP: u64 = 1 << 32;
 const LAN_DICTATION: u64 = 1 << 33;
 const SAVE_CORRECTIONS: u64 = 1 << 34;
+const PHONON_CLEANUP: u64 = 1 << 35;
 /// Unload-idle minutes (at most 1,440, 11 bits) sit above the switches.
-const MINUTES_SHIFT: u64 = 35;
+const MINUTES_SHIFT: u64 = 36;
 
 /// This process's `labs` switches: unknown until settings load or one is
 /// first read.
@@ -1065,6 +1077,12 @@ pub fn keep_recordings() -> bool {
 /// (`lan::corrections`).
 pub fn save_corrections() -> bool {
     on(SAVE_CORRECTIONS)
+}
+
+/// Tiro: Phonon's refiner cleans instead of Vedu Scribe (read at each
+/// cleanup, so a switch applies from the next dictation).
+pub fn phonon_cleanup() -> bool {
+    !cfg!(test) && on(PHONON_CLEANUP)
 }
 
 /// The menu-bar icon is hidden while nothing records (macOS; read each
@@ -1239,6 +1257,11 @@ fn encode_where(settings: &LabsSettings, reaches: impl Fn(Feature) -> bool) -> u
             Feature::SaveCorrections,
             settings.save_corrections,
             SAVE_CORRECTIONS,
+        ),
+        (
+            Feature::PhononCleanup,
+            settings.phonon_cleanup,
+            PHONON_CLEANUP,
         ),
         (
             Feature::HideMenuBarIcon,

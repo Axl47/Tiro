@@ -103,6 +103,32 @@ Unit tests passed through all of these; running the real pipeline caught them:
 - Warming up once didn't remove the first-dictation penalty; the second inference is
   slow too. A longer warm-up prompt didn't help, and a second pass did.
 
+### Phonon's refiner through llama.cpp
+
+Labs › Clean up with Phonon swaps the model for Phonon's refiner (LFM3-1.7B, GGUF).
+It runs in a pinned `llama-server` (llama.cpp `b12132`, the release Phonon ships),
+downloaded with the weights into the models folder and checked by SHA-256
+(`cleanup/llama.rs`). The same engine runs Vedu Scribe's GGUF off macOS, so the Mac
+dependency was MLX, never the model.
+
+- **A child process, for the same reasons as `tiro-scribe`:** a Metal fault costs one
+  cleanup, and the idle stop returns the memory. It listens on loopback behind a
+  per-launch key, under a shell that kills it when Tiro's end of a pipe closes.
+- **Phonon's contract, not Tiro's** (`cleanup/phonon.rs`): its trained system turn,
+  a writing mode from the app the text goes to, its vocabulary list and cap, output
+  budget, length guard, and term restoration. Tiro's faithfulness check and residue
+  still run after it. `casual` mode writes lowercase, so chat apps get `minimal`.
+
+### Clean while recording
+
+A dictation's stream publishes its committed text as it goes. `cleanup/live.rs`
+cleans each sentence once the next has begun (`cleanup/precleaned.rs`, shared with
+phone streams), so the release waits on the last sentence only. The stream never
+decides the text: the finish reuses a sentence only when the final transcript has it
+exactly, cleaned for the same app, model, and vocabulary, and cleans the rest at once.
+A sentence opening with a correction ("No, five") stays with the one before, so the
+model still sees the retraction.
+
 ### Keep the fork thin
 
 Tiro changes identity (name, bundle ID, data folder), adds the stage, and narrows the

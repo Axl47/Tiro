@@ -180,7 +180,7 @@ class Tiro:
         self.pipeline = Pipeline(data_dir)
 
     def clean(self, transcript, app=None):
-        reply = self.pipeline.clean(transcript)
+        reply = self.pipeline.clean(transcript, app)
         return dict(text=reply["text"], ms=reply["roundTripMs"], timings={}, fallback=reply.get("fallback"))
 
 
@@ -201,7 +201,8 @@ def load_rows(name, data_dir):
     if name in ("corpus", "holdout"):
         rows = json.loads((ROOT / f"{name}.json").read_text())["rows"]
         streamed = json.loads(STREAMED.read_text())
-        return [dict(r, raw=streamed.get(r["id"], r["raw"]), app=None) for r in rows]
+        # Prompts for a coding agent, as if dictated into one.
+        return [dict(r, raw=streamed.get(r["id"], r["raw"]), app="T3 Code (Nightly)") for r in rows]
     entries = json.loads((Path(data_dir) / "history.json").read_text())["entries"]
     rows = []
     for e in entries:
