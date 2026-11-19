@@ -1054,6 +1054,7 @@ impl LinuxDesktopHost {
                             Default::default(),
                             Default::default(),
                             mpsc::channel().1.into(),
+                            &AtomicBool::new(false),
                         )?;
                     }
                 }

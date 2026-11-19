@@ -315,9 +315,20 @@ pub(crate) fn run(
     let hotkey_label = binding.label();
     let mut toggle = options.toggle;
     let start_shortcuts = |(binding, options): (LinuxHotkey, HotkeyOptions)| {
-        LinuxHotkeyMonitor::start(binding, options, hotkey_status.clone(), commands.clone())
+        LinuxHotkeyMonitor::start(
+            binding,
+            options,
+            hotkey_status.clone(),
+            commands.clone(),
+            shutdown,
+        )
     };
-    let mut hotkey = Some(start_shortcuts((binding, options))?);
+    let mut hotkey = match start_shortcuts((binding, options)) {
+        Ok(monitor) => Some(monitor),
+        // Stopped while the desktop's approval dialog was open.
+        Err(_) if shutdown.load(Ordering::Relaxed) => return Ok(()),
+        Err(error) => return Err(error),
+    };
     let mut shortcuts_suspended = false;
     let mut indicator = LinuxIndicator::new(settings.indicator_position);
     let mut suppressor =
@@ -537,7 +548,11 @@ pub(crate) fn run(
                 // The old registration goes first: X11 grabs the same keys again.
                 drop(hotkey.take());
                 if !shortcuts_suspended {
-                    hotkey = Some(start_shortcuts(shortcuts(&settings))?);
+                    match start_shortcuts(shortcuts(&settings)) {
+                        Ok(monitor) => hotkey = Some(monitor),
+                        Err(_) if shutdown.load(Ordering::Relaxed) => break,
+                        Err(error) => return Err(error),
+                    }
                 }
             }
             // A GPU without room for two copies: the engine swaps in place.

@@ -3,7 +3,7 @@
 //! desktop keybinding runs. Dictation sees only [`HotkeyEvent`]s.
 
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::mpsc::{self, Receiver, SyncSender, TrySendError};
+use std::sync::mpsc::{self, Receiver, RecvTimeoutError, SyncSender, TrySendError};
 use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
@@ -944,14 +944,24 @@ pub(crate) struct LinuxHotkeyMonitor {
 
 impl LinuxHotkeyMonitor {
     /// Registers the shortcuts on X11 or through the Wayland shortcuts
-    /// portal; without the portal only `commands` drive dictation.
+    /// portal; without the portal only `commands` drive dictation. Setting
+    /// `cancel` stops waiting for the desktop's approval, so Hex can quit
+    /// while that dialog is still open.
     pub(crate) fn start(
         binding: LinuxHotkey,
         options: HotkeyOptions,
         status: HotkeyStatus,
         commands: CommandQueue,
+        cancel: &AtomicBool,
     ) -> Result<Self> {
-        Self::start_for(binding, options, LinuxSession::detect(), status, commands)
+        Self::start_for(
+            binding,
+            options,
+            LinuxSession::detect(),
+            status,
+            commands,
+            cancel,
+        )
     }
 
     fn start_for(
@@ -960,6 +970,7 @@ impl LinuxHotkeyMonitor {
         session: LinuxSession,
         status: HotkeyStatus,
         commands: CommandQueue,
+        cancel: &AtomicBool,
     ) -> Result<Self> {
         let (sender, events) = mpsc::sync_channel(16);
         let (error_sender, errors) = mpsc::channel();
@@ -1001,10 +1012,20 @@ impl LinuxHotkeyMonitor {
             LinuxSession::X11 => Duration::from_secs(2),
             LinuxSession::Wayland => PORTAL_READY_TIMEOUT,
         };
-        ready_receiver
-            .recv_timeout(timeout)
-            .map_err(|_| eyre!("timed out registering the Linux dictation shortcut"))??;
-        Ok(monitor)
+        let deadline = Instant::now() + timeout;
+        loop {
+            match ready_receiver.recv_timeout(POLL_INTERVAL) {
+                Ok(ready) => return ready.map(|()| monitor),
+                // Dropping the monitor stops the worker's pending portal request.
+                Err(RecvTimeoutError::Timeout) if cancel.load(Ordering::Acquire) => {
+                    return Err(eyre!(
+                        "registering the Linux dictation shortcut was canceled"
+                    ));
+                }
+                Err(RecvTimeoutError::Timeout) if Instant::now() < deadline => {}
+                Err(_) => return Err(eyre!("timed out registering the Linux dictation shortcut")),
+            }
+        }
     }
 }
 
@@ -2437,6 +2458,7 @@ mod tests {
             LinuxSession::X11,
             status,
             receiver.into(),
+            &AtomicBool::new(false),
         )
         .unwrap();
         (monitor, commands)
