@@ -143,9 +143,17 @@ fn work(heard: &mpsc::Receiver<(Arc<Session>, String)>) {
 fn catch_up(session: &Session, stable: &str) {
     let setup = session.setup.get_or_init(|| {
         let context = crate::dictation::vocabulary::focused().unwrap_or_default();
+        #[cfg(target_os = "macos")]
+        let vocabulary =
+            crate::dictation::config::dictation_profiles().cleanup_vocabulary(&context);
+        // Elsewhere the listener picks the mode (`dictation::modes`); a mode
+        // with its own terms then finishes with another vocabulary and reuses
+        // nothing, which is slower but never wrong.
+        #[cfg(not(target_os = "macos"))]
+        let vocabulary = crate::dictation::vocabulary::entries();
         Setup {
             model: Model::selected(),
-            vocabulary: crate::dictation::config::dictation_profiles().cleanup_vocabulary(&context),
+            vocabulary,
             application: context.application,
         }
     });
