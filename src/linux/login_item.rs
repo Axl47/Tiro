@@ -562,7 +562,11 @@ mod tests {
         let wants = units.join("graphical-session.target.wants");
         fs::create_dir_all(&wants).unwrap();
         assert!(!service_enabled_in(&units));
-        std::os::unix::fs::symlink(units.join(crate::linux::service::UNIT), wants.join(crate::linux::service::UNIT)).unwrap();
+        std::os::unix::fs::symlink(
+            units.join(crate::linux::service::UNIT),
+            wants.join(crate::linux::service::UNIT),
+        )
+        .unwrap();
         assert!(service_enabled_in(&units));
         fs::remove_dir_all(units).unwrap();
     }

@@ -838,6 +838,15 @@ fn default_root(root: &Path, data: Option<&Path>) -> bool {
 }
 
 fn systemctl(arguments: &[&str]) -> Result<()> {
+    systemctl_accepting(arguments, std::process::ExitStatus::success)
+}
+
+/// Runs `systemctl --user <arguments> <unit>`; `accept` decides which exit
+/// statuses count as done.
+fn systemctl_accepting(
+    arguments: &[&str],
+    accept: impl Fn(&std::process::ExitStatus) -> bool,
+) -> Result<()> {
     let unit = unit();
     let mut child = Command::new("systemctl")
         .arg("--user")
@@ -852,7 +861,7 @@ fn systemctl(arguments: &[&str]) -> Result<()> {
     let deadline = Instant::now() + Duration::from_secs(40);
     loop {
         if let Some(status) = child.try_wait()? {
-            if !status.success() {
+            if !accept(&status) {
                 bail!(
                     "systemctl --user {} {unit} failed; inspect `systemctl --user status {unit}`",
                     arguments.join(" ")
@@ -959,8 +968,14 @@ pub(crate) fn restart() -> Result<()> {
     systemctl(&["restart"])
 }
 
+/// Restarts this supervised Hex from inside it. Stopping the unit signals
+/// its whole cgroup, this `systemctl` included, often before it exits: a
+/// SIGTERM means the restart has begun.
 pub(crate) fn schedule_restart() -> Result<()> {
-    systemctl(&["--no-block", "restart"])
+    use std::os::unix::process::ExitStatusExt;
+    systemctl_accepting(&["--no-block", "restart"], |status| {
+        status.success() || status.signal() == Some(libc::SIGTERM)
+    })
 }
 
 /// The display the process connects to. Absent values are written empty
@@ -1168,7 +1183,10 @@ mod tests {
             Some(data)
         ));
         assert!(!default_root(Path::new("/tmp/hex-test"), Some(data)));
-        assert!(!default_root(Path::new("/home/kit/.local/share/tiro"), None));
+        assert!(!default_root(
+            Path::new("/home/kit/.local/share/tiro"),
+            None
+        ));
     }
 
     #[test]
